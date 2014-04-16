@@ -5,12 +5,15 @@ A light-weight alternative to Boost::Signals2 and SigSlot++
 
 ## What makes this different from all the other Signal/Slot libraries out there?
  - Light-weight: No unnecessary virtual calls besides the std::function 
- - Uses vectors as the underlying storage
-    The theory is that you'll be emitting signals far more than you'll be adding slots 
-    so using vectors will improve performance greatly by playing nice with the CPUs cache and taking
-    advantage of SIMD
+ - Uses vectors as the underlying storage.
+   
+    This is a very important and disguinshing factor between slimsig and other libraries.
+    The idea is that your signal will spend much more time iterating and executing slots than adding/removing them.
+    Most implementations use a double or singly linked list which kill performance on modern CPUs by completely trashing the cache and eliminating the CPU's ability to optimize and use SIMD instructions. This is a big deal!
+
+ - Less memory allocations: Because we use a vector instead of a list, we can re-use memory we've already allocated from deleted slots for future slots without hitting the heap again. STL's linked list allocates and deallocates every time you add/remove an item. Bad for cache locality, bad for fragmentation, bad for your soul!
  - Supports adding/removing slots while the signal is running (despite it being a vector)
- - Removing slots should still be fast as it uses std::remove_if to iterate/execute slots
+ - Removing slots should still be very fast. It uses std::remove_if to iterate/execute slots
     Meaning that if there are disconnected slots they are removed quickly after iteration
  - Custom allocators for more performance tweaking
 
