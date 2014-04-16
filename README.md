@@ -1,5 +1,6 @@
 slimsig
 =======
+![slimsig](http://i.imgur.com/rpC5pot.png?1)
 
 A light-weight alternative to Boost::Signals2 and SigSlot++.
 
@@ -24,6 +25,7 @@ A light-weight alternative to Boost::Signals2 and SigSlot++.
 If you're using gyp you can simply add `"includes": ["path/to/slimsig.gypi"]` to your target and the appropriate header search paths will be added for you
 
 ## How to run the unit tests
+![unit tests](http://i.imgur.com/5AriT6o.png)
 If you using gyp just execute `$ gyp --depth=./ slimsig.gyp` from the command line to generate an project file for your platform. It defaults to xcode on OSX, Visual Studio on Windows and a makefile on linux/posix systems but you can choose which one you want with `-f [projecttype]`. See the gyp documentation for more details.
 
 Once you've got your project just open it up and build the `test-runner` target and run it. We use bandit as a unit-test framework so you can execute a bunch of neat commands like `./test-runner --reporter=spec --only connection` to only run connection related tests and show the output as in a neat doc-like format. For more information see the [bandit documentation](http://banditcpp.org/).
