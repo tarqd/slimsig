@@ -1,0 +1,251 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A0A0EE10EB9E50BF7EAD8A8B /* test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3D28801406DBA8164D5B8042 /* test.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		3BE7C5FD97F31578FB2C64AF /* slimsig.gyp */ = {isa = PBXFileReference; explicitFileType = sourcecode; path = slimsig.gyp; sourceTree = "<group>"; };
+		3D28801406DBA8164D5B8042 /* test.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test.cpp; sourceTree = "<group>"; };
+		5CEC23C49412BF671063D4DA /* common.gypi */ = {isa = PBXFileReference; explicitFileType = sourcecode; path = common.gypi; sourceTree = "<group>"; };
+		5D584760837ACAD14BDFD26F /* slimsig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = slimsig.h; sourceTree = "<group>"; };
+		96877E5511BD6E2BFCF98320 /* slimsig.gypi */ = {isa = PBXFileReference; explicitFileType = sourcecode; path = slimsig.gypi; sourceTree = "<group>"; };
+		F4395E03009A9019FCD8E93E /* test-runner */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-runner"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E6B0969A38383B4E345CC69B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		58E1AC3DB8CD55B018218048 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F89EF382CD5F069BA0DF130C /* include/slimsig */,
+				75EA26DFE7452602323E241A /* test */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		6C464DE2FB9BA283DB03BBC9 /* Build */ = {
+			isa = PBXGroup;
+			children = (
+				5CEC23C49412BF671063D4DA /* common.gypi */,
+				3BE7C5FD97F31578FB2C64AF /* slimsig.gyp */,
+				96877E5511BD6E2BFCF98320 /* slimsig.gypi */,
+			);
+			name = Build;
+			sourceTree = "<group>";
+		};
+		75EA26DFE7452602323E241A /* test */ = {
+			isa = PBXGroup;
+			children = (
+				3D28801406DBA8164D5B8042 /* test.cpp */,
+			);
+			path = test;
+			sourceTree = "<group>";
+		};
+		838B76B8610B5ED61DA8686D = {
+			isa = PBXGroup;
+			children = (
+				58E1AC3DB8CD55B018218048 /* Source */,
+				D53014A64DBDDE33F4DC1C8A /* Products */,
+				6C464DE2FB9BA283DB03BBC9 /* Build */,
+			);
+			sourceTree = "<group>";
+		};
+		D53014A64DBDDE33F4DC1C8A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F4395E03009A9019FCD8E93E /* test-runner */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F89EF382CD5F069BA0DF130C /* include/slimsig */ = {
+			isa = PBXGroup;
+			children = (
+				5D584760837ACAD14BDFD26F /* slimsig.h */,
+			);
+			path = include/slimsig;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D5565D4AB26FB023B8543946 /* test-runner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C827C3062B534767308BF637 /* Build configuration list for PBXNativeTarget "test-runner" */;
+			buildPhases = (
+				4DC44E526002F7499EB39A1E /* Sources */,
+				E6B0969A38383B4E345CC69B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "test-runner";
+			productName = "test-runner";
+			productReference = F4395E03009A9019FCD8E93E /* test-runner */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		ACE5302568912EC376105F49 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+			};
+			buildConfigurationList = 371F8C7E2B39E00925761131 /* Build configuration list for PBXProject "slimsig" */;
+			compatibilityVersion = "Xcode 3.2";
+			hasScannedForEncodings = 1;
+			mainGroup = 838B76B8610B5ED61DA8686D;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D5565D4AB26FB023B8543946 /* test-runner */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4DC44E526002F7499EB39A1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A0A0EE10EB9E50BF7EAD8A8B /* test.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		26743E72FC680A7863C2F931 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INTERMEDIATE_DIR = "$(PROJECT_DERIVED_FILE_DIR)/$(CONFIGURATION)";
+				SHARED_INTERMEDIATE_DIR = "$(SYMROOT)/DerivedSources/$(CONFIGURATION)";
+			};
+			name = Debug;
+		};
+		71D99EF6FC8AAC180DC497A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				EXECUTABLE_PREFIX = "";
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = (
+					./include,
+					deps/bandit,
+					test,
+				);
+				OTHER_CFLAGS = "-fstrict-aliasing";
+				OTHER_LDFLAGS = "-Wl,-search_paths_first";
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-runner";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wendif-labels",
+					"-W",
+					"-Wno-unused-parameter",
+				);
+			};
+			name = Release;
+		};
+		A5D75A27484DC17415ED2188 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				EXECUTABLE_PREFIX = "";
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					DEBUG,
+					_DEBUG,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				HEADER_SEARCH_PATHS = (
+					./include,
+					deps/bandit,
+					test,
+				);
+				OTHER_CFLAGS = (
+					"-fstrict-aliasing",
+					"-Wno-strict-aliasing",
+				);
+				OTHER_LDFLAGS = "-Wl,-search_paths_first";
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-runner";
+				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wendif-labels",
+					"-W",
+					"-Wno-unused-parameter",
+				);
+			};
+			name = Debug;
+		};
+		C95E22A2F04D558EA3472B39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INTERMEDIATE_DIR = "$(PROJECT_DERIVED_FILE_DIR)/$(CONFIGURATION)";
+				SHARED_INTERMEDIATE_DIR = "$(SYMROOT)/DerivedSources/$(CONFIGURATION)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		371F8C7E2B39E00925761131 /* Build configuration list for PBXProject "slimsig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				26743E72FC680A7863C2F931 /* Debug */,
+				C95E22A2F04D558EA3472B39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Debug;
+		};
+		C827C3062B534767308BF637 /* Build configuration list for PBXNativeTarget "test-runner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5D75A27484DC17415ED2188 /* Debug */,
+				71D99EF6FC8AAC180DC497A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 1;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = ACE5302568912EC376105F49 /* Project object */;
+}

@@ -1,0 +1,3 @@
+[submodule "deps/bandit"]
+	path = deps/bandit
+	url = https://github.com/joakimkarlsson/bandit.git
