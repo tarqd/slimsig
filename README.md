@@ -1,7 +1,7 @@
 slimsig
 =======
 
-A light-weight alternative to Boost::Signals2 and SigSlot++
+A light-weight alternative to Boost::Signals2 and SigSlot++.
 
 ## What makes this different from all the other Signal/Slot libraries out there?
  - Light-weight: No unnecessary virtual calls besides the std::function 
@@ -42,10 +42,17 @@ I'll write up some proper documentation soon but for now check out `test/test.cp
   To keep it simple I left out support for slots that return values, though it shouldn't be too hard to implement.
   I've also left thread safety as something to be handled by higher level libraries
   Much in the spirit of other STL containers. My reasoning is that even with thread safety sort of baked in
-  The user would still be responsible making sure slots don't do anything funny if they are executed on different threads
-  All the mechanics for this would complicate the library and really not solve much of anything while also slowing down 
-  the library for applications where signals/slots are only used from a single thread
+  the user would still be responsible making sure slots don't do anything funny if they are executed on different threads.
+  All the mechanics for this would complicate the library, confuse users into thinking that your syncronization problems are magically sorted, and slow it down considerably even if you aren't using threads.
+ Syncronization decisions are very application specific and simply don't belong in a basic building blocks library like this. 
  
-  Plus it makes things like adding slots to multiple signals really slow because you have to lock each and every time
-  You'd be better off using your own synchronization methods to setup all your signals at once and releasing your lock after
-  you're done
+## Inspiration 
+- Boost::Signals2 - Beautiful, powerful, but heavy-weight Signal/Slot library that does everything but your taxes
+- SigSlot++ 
+- ssig - Another light-weight implementation, original inspiration for sigslim
+
+## Benchmarks
+- Coming soon! Maybe!
+  
+ 
+ 
