@@ -60,6 +60,7 @@
 #include <atomic>
 #include <memory>
 #include <algorithm>
+#include <vector>
   
 namespace slimsig {
   template <class Handler, class Allocator>
