@@ -5,7 +5,7 @@ slimsig
 A light-weight alternative to Boost::Signals2 and SigSlot++.
 
 ## What makes this different from all the other Signal/Slot libraries out there?
- - Light-weight: No unnecessary virtual calls besides the std::function 
+ - Light-weight: Only one header file, <200 lines of code. No dependencies (unless you're running the unit tests)
  - Uses vectors as the underlying storage.
    
     This is a very important and disguinshing factor between slimsig and other libraries.
