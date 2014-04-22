@@ -54,7 +54,12 @@ I'll write up some proper documentation soon but for now check out `test/test.cp
 - ssig - Another light-weight implementation, original inspiration for sigslim
 
 ## Benchmarks
-- Coming soon! Maybe!
-  
+Really quick and dirty test, just loops through adding 100,000 slots to a signal and emitting it 10,000 times.
+Tested on my Macbook Air 1.3GHZ Intel Core i5 with 4GB of RAM.
+![benchamrks](http://i.imgur.com/yNOEQ4Z.png)
+
+Though not shown, on average the non-sharedptr branch is only 1 second slower than just using a vector with the same benchmark.
+As Slimmer Signals has a huge advantage when it comes to actually emitting signals, likely due to it's use of vectors as an underlying store. Even with shared_ptrs we still stick around 7-8ms on the same benchmarks, although memory usage is much higher. Still debating whether or not removing shared_ptrs are worth it yet.
+
  
  
