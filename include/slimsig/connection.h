@@ -79,11 +79,11 @@ private:
   using slot_type = typename Signal::slot_type;
   using slot_list_iterator = typename Signal::slot_list::iterator;
   using slot_storage = typename Signal::slot_storage_type;
-  connection(const slot_type& slot) : m_slot_id(slot.m_slot_id) {};
+  connection(std::weak_ptr<slot_storage> slots, const slot_type& slot) : m_slots(std::move(slots)), m_slot_id(slot.m_slot_id) {};
   public:
     connection() {}; // empty connection
-    connection(const connection& other) : m_slot_id(other.m_slot_id) {};
-    connection(connection&& other) : m_slot_id(std::move(other.m_slot_id)) {};
+    connection(const connection& other) : m_slots(other.m_slots), m_slot_id(other.m_slot_id) {};
+    connection(connection&& other) : m_slots(std::move(other.m_slots)), m_slot_id(other.m_slot_id) {};
     
     connection& operator=(connection&& rhs) {
       this->swap(rhs);
@@ -103,13 +103,13 @@ private:
     
     [[gnu::always_inline]]
     inline bool connected() {
-      auto ptr = find(m_slots, m_slot_id);
+      auto ptr = find(m_slots.lock(), m_slot_id);
       if (ptr) return ptr->connected();
       else return false;
     }
     [[gnu::always_inline]]
     inline void disconnect() {
-      auto ptr = find(m_slots, m_slot_id);
+      auto ptr = find(m_slots.lock(), m_slot_id);
       if (ptr) ptr->disconnect();
     }
     template <class Allocator, class F>

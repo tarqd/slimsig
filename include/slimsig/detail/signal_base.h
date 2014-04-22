@@ -92,7 +92,7 @@ public:
   {
     auto& container = !is_running ? m_slots->active : m_slots->pending;
     container.emplace_back(std::move(slot), next_id());
-    return connection_type { container.back() };
+    return connection_type { m_slots, container.back() };
   };
   
   
@@ -109,7 +109,7 @@ public:
     auto& container = queue();
     container.emplace_back(fire_once{std::move(slot)}, next_id());
     auto& slot_handler = container.back();
-    connection_type connection { slot_handler };
+    connection_type connection { m_slots, slot_handler };
     slot_handler.template slot_target<fire_once>()->connection = connection;
     return connection;
   }
@@ -123,10 +123,12 @@ public:
     return allocator;
   }
   inline bool empty() const {
-    return this->slots.size() + this->pending_slots.size() == 0;
+    auto& slots = *m_slots;
+    return slots.active.size() == 0 && slots.pending.size() == 0;
   }
   inline std::size_t slot_count() const {
-    return m_slots->slot_count();
+    auto& slots = *m_slots;
+    return slots.active.size() + slots.pending.size();
   }
   inline void compact() {
     auto& slots = *m_slots;

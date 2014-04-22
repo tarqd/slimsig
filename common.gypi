@@ -28,7 +28,7 @@
       'Release': {
         'defines': [ 'NDEBUG' ],
         'cflags': [
-          '-O3',
+          '-Ofast',
           '-fstrict-aliasing',
           '-fomit-frame-pointer',
           '-fdata-sections',
