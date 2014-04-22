@@ -101,7 +101,7 @@
       }],
       ['OS in "freebsd linux openbsd solaris android"', {
         'cflags': [ '-Wall' ],
-        'cflags_cc': [ '-fno-rtti', '-fno-exceptions' ],
+        'cflags_cc': [  ],
         'target_conditions': [
           ['_type=="static_library"', {
             'standalone_static_library': 1, # disable thin archive which needs binutils >= 2.19

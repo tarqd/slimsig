@@ -9,56 +9,130 @@
 #ifndef slimsig_connection_h
 #define slimsig_connection_h
 #include <memory>
+#include <functional>
+#include <algorithm>
 namespace slimsig {
-  namespace detail {
-  template <class Allocator, class F>
-  class signal_base;
+template <class Signal>
+class connection;
+namespace detail {
+template <class Allocator, class F>
+class signal_base;
+
+template <class F>
+class slot;
+
+template <class SlotListT>
+struct slot_store : std::enable_shared_from_this<slot_store<SlotListT>> {
+  using slot_list = SlotListT;
+  using allocator_type = typename SlotListT::allocator_type;
+  slot_store(const allocator_type& alloc) :
+    active(alloc),
+    pending(alloc) {};
+  
+  slot_list active;
+  slot_list pending;
+  
+};
+
+template <class R, class... Args>
+class slot<R(Args...)> {
+public:
+  using function_type = std::function<R(Args...)>;
+  slot(function_type fn, unsigned long long slot_id) : m_fn(std::move(fn)), m_slot_id(slot_id) {};
+  bool operator==(const slot& other) {
+    return m_slot_id == other.m_slot_id;
   }
-  template <class Handler>
+  bool operator <(const slot& other) {
+    return m_slot_id < other.m_slot_id;
+  }
+  bool operator >(const slot& other) {
+    return m_slot_id > other.m_slot_id;
+  }
+  inline operator bool() {
+   return bool(m_fn);
+  }
+  bool connected() {
+    return bool(m_fn);
+  }
+  void disconnect() {
+    m_fn = nullptr;
+  }
+  R operator() (Args&&... args) {
+    return m_fn(std::forward<Args>(args)...);
+  }
+  template <class A, class F>
+  friend class signal_base;
+  template <class Signal>
+  friend class slimsig::connection;
+private:
+  template <class T>
+  inline T* slot_target() {
+    return m_fn.template target<T>();
+  }
+  function_type m_fn;
+  unsigned long long m_slot_id;
+};
+} // detail
+  
+  template <class Signal>
   class connection {
+  using slot_type = typename Signal::slot_type;
+  using slot_list_iterator = typename Signal::slot_list::iterator;
+  using slot_storage = typename Signal::slot_storage_type;
+  connection(const slot_type& slot) : m_slot_id(slot.m_slot_id) {};
   public:
-    using function_type = Handler;
     connection() {}; // empty connection
-    connection(const connection& other) : m_slot(other.m_slot) {};
-    connection(connection&& other) : m_slot(std::move(other.m_slot)) {};
-    connection(const std::weak_ptr<function_type>& slot) : m_slot(slot) {};
+    connection(const connection& other) : m_slot_id(other.m_slot_id) {};
+    connection(connection&& other) : m_slot_id(std::move(other.m_slot_id)) {};
     
     connection& operator=(connection&& rhs) {
       this->swap(rhs);
       return *this;
     }
     connection& operator=(const connection& rhs) {
-      m_slot = rhs.m_slot;
+      m_slot_id = rhs.m_slot_id;
+      m_slots = rhs.m_slots;
       return *this;
     }
     
     void swap(connection& other) {
       using std::swap;
-      swap(m_slot, other.m_slot);
+      swap(m_slots, other.m_slots);
+      swap(m_slot_id, other.m_slot_id);
     }
     
     [[gnu::always_inline]]
     inline bool connected() {
-      auto slot = m_slot.lock();
-      return slot && bool(*slot);
+      auto ptr = find(m_slots, m_slot_id);
+      if (ptr) return ptr->connected();
+      else return false;
     }
     [[gnu::always_inline]]
     inline void disconnect() {
-      auto slot = m_slot.lock();
-      if (slot) {
-        *slot = nullptr;
-        m_slot.reset();
-      }
+      auto ptr = find(m_slots, m_slot_id);
+      if (ptr) ptr->disconnect();
     }
-    
     template <class Allocator, class F>
     friend class detail::signal_base;
     
   private:
-    inline std::shared_ptr<function_type> slot() {
-      return m_slot.lock();
+    static slot_type* find(std::shared_ptr<slot_storage> store, unsigned long long slot_id) {
+      if (store == nullptr) return nullptr;
+      auto& slots = *store;
+      auto is_match = [slot_id] (const slot_type& slot) {
+        return slot.m_slot_id == slot_id;
+      };
+      auto begin = slots.active.begin();
+      auto end = slots.active.end();
+      begin = std::find_if(begin, end, is_match);
+      if (begin != end) return &*begin;
+      begin = slots.pending.begin();
+      end = slots.pending.end();
+      begin = std::find_if(begin, end, is_match);
+      return begin != end ? &*begin : nullptr;
     }
-    std::weak_ptr<function_type> m_slot;
+    unsigned long long m_slot_id;
+    std::weak_ptr<slot_storage> m_slots;
   };
   
   template <class connection>

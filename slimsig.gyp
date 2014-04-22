@@ -9,7 +9,7 @@
     # for ease of development
     "include/slimsig/slimsig.h",
     "include/slimsig/tracked_connect.h",
-    "include/slimsig/signal_base.h",
+    "include/slimsig/detail/signal_base.h",
     "include/slimsig/connection.h"]
   }, {
     "target_name": "benchmark",

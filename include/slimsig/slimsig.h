@@ -93,7 +93,7 @@ namespace slimsig {
     
     // default constructor
     signal() : signal(allocator_type()) {};
-    
+
     using base::emit;
     using base::connect;
     using base::connect_once;
