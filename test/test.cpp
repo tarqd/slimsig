@@ -4,10 +4,7 @@
 
 using namespace bandit;
 namespace ss = slimsig;
-using ss::connection;
-using ss::scoped_connection;
-using slimsig::make_scoped_connection;
-
+using ss::signal_t;
 bool function_slot_triggered = false;
 bool static_slot_triggered = false;
 bool functor_slot_triggered = false;
@@ -23,7 +20,7 @@ go_bandit([]
 {
   describe("signal", []
   {
-    ss::signal<void()> signal;
+    signal_t<void()> signal;
     before_each([&]
     {
       signal = ss::signal<void()>{};
@@ -56,6 +53,12 @@ go_bandit([]
       signal.emit();
       AssertThat(functor_slot_triggered, Equals(true));
     });
+    it("should trigger lambda slots", [&] {
+      bool fired = false;
+      signal.connect([&] { fired = true;});
+      signal.emit();
+      AssertThat(fired, Equals(true));
+    });
     describe("#slot_count()", [&] {
       it("should return the slot count", [&]
       {
@@ -70,6 +73,19 @@ go_bandit([]
         });
         signal.emit();
         AssertThat(signal.slot_count(), Equals(2));
+      });
+    });
+    describe("#connect_once()", [&]{
+      it("it should fire once", [&] {
+        int count = 0;
+        signal.connect_once([&] {
+          count++;
+        });
+        signal.emit();
+        AssertThat(count, Equals(1));
+        signal.emit();
+        AssertThat(count, Equals(1));
+        
       });
     });
     describe("#disconnect_all()", [&]
@@ -87,6 +103,24 @@ go_bandit([]
     });
     
   });
+  /*
+  describe("tracking", [] {
+    ss::signal<void()> signal;
+    before_each([&] { signal = ss::signal<void()>{}; });
+    it("should disconnect slots when tracked objects are destroyed", [&] {
+      struct foo{};
+      bool called = false;
+      auto tracked = std::make_shared<foo>();
+      signal.connect([&] {
+        called = true;
+      }, {tracked});
+      tracked.reset();
+      signal.emit();
+      AssertThat(called, Equals(false));
+      signal.compact();
+      AssertThat(signal.slot_count(), Equals(0));
+    });
+  });*/
   describe("connection", [] {
     ss::signal<void()> signal;
     before_each([&] { signal = ss::signal<void()>{}; });
@@ -136,7 +170,8 @@ go_bandit([]
     });
     it("should still be valid if the signal is destroyed", [&]
     {
-      ss::connection<ss::signal<void()>> connection;
+      using connection_type = ss::signal<void()>::connection_type;
+      connection_type connection;
       {
         ss::signal<void()> scoped_signal;
         connection = scoped_signal.connect([]{});

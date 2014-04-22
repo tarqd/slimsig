@@ -20,3 +20,8 @@
 *.out
 *.app
 build
+slimsig.xcodeproj
+benchmark2
+build_benchmark.sh
+example.cpp
+gyp.sh
