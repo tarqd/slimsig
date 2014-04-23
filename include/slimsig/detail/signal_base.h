@@ -66,7 +66,15 @@ public:
       // with an r-value reference, only the first slot will be able to access it
       // This results in extra copying but you can avoid that by accepting values by l-value references
       // instead of by value
-      if (fn) { fn(args...); return false;}
+      if (fn) {
+        if (slot != slots.back()) {
+          fn(args...);
+        } else {
+          // move arguments for last slot
+          fn(std::forward<Args>(args)...);
+        }
+        return false;
+      }
       else return true;
     };
     auto begin = slots.begin();
