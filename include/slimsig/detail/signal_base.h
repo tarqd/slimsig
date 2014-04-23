@@ -54,14 +54,19 @@ public:
   pending_slots{list_allocator_type{allocator}},
   is_running(false) {};
   
-  // use R and Args&&.. for better autocompletion
-  R emit(Args&&... args) {
+  // use R and Args... for better autocompletion
+  R emit(Args... args) {
     is_running = true;
     // runs the slot if connected, otherwise return true and queue it for deletion
     auto is_disconnected = [&] (const_slot_reference slot)
     {
       auto& fn = *slot;
-      if (fn) { fn(std::forward<Args>(args)...); return false;}
+      // we don't use std::forward because that will cause problems with r-value references
+      // for example if the signature is void(std::string) and the user emits
+      // with an r-value reference, only the first slot will be able to access it
+      // This results in extra copying but you can avoid that by accepting values by l-value references
+      // instead of by value
+      if (fn) { fn(args...); return false;}
       else return true;
     };
     auto begin = slots.begin();
@@ -80,7 +85,7 @@ public:
     is_running = false;
   }
   
-  connection_type connect(function_type slot)
+  connection_type connect(std::function<R(Args...)> slot)
   {
     auto& container = !is_running ? slots : pending_slots;
     container.emplace_back(std::allocate_shared<function_type>(allocator, std::allocator_arg, allocator, std::move(slot)));
