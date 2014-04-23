@@ -17,5 +17,11 @@
     "include_dirs": ["benchmark", "include"],
     "includes": ["slimsig.gypi"],
     "sources": ["benchmark/benchmark.cpp"]
+  }, {
+    "target_name": "benchmark-boost",
+    "type": "executable",
+    "include_dirs": ["benchmark", "include", "/usr/local/include/"],
+    "includes": ["slimsig.gypi"],
+    "sources": ["benchmark/benchmark-boost.cpp"]
   }]
 }

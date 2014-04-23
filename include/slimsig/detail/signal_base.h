@@ -84,12 +84,10 @@ public:
     // so the matched elements end up at the end of the array
     begin = std::remove_if(begin, end, is_disconnected);
     if (begin != end) slots.erase(begin, end);
-    if (pending_slots.size() > 0) {
-      slots.insert(slots.cend(),
+    slots.insert(slots.cend(),
                    std::make_move_iterator(pending_slots.begin()),
                    std::make_move_iterator(pending_slots.end()));
-      pending_slots.clear();
-    }
+    pending_slots.clear();
     is_running = false;
   }
   
