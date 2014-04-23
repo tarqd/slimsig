@@ -63,14 +63,23 @@ public:
   }
   
   // use R and Args&&.. for better autocompletion
-  inline R emit(Args&&... args) {
+  inline R emit(Args... args) {
+    is_running = true;
+    auto& slots = *m_slots;
     // runs the slot if connected, otherwise return true and queue it for deletion
     auto is_disconnected = [&] (const_slot_reference slot)
     {
-      if (slot) { slot(std::forward<Args>(args)...); return false;}
+      if (slot) {
+        if (slot == slots.active.back()) {
+          slot.slot_function()(std::forward<Args>(args)...);
+        } else {
+          slot.slot_function()(args...);
+        }
+        return false;
+      }
       else return true;
     };
-    auto& slots = *m_slots;
+    
     
     auto begin = slots.active.begin();
     auto end = slots.active.end();
@@ -94,7 +103,6 @@ public:
     container.emplace_back(std::move(slot), next_id());
     return connection_type { m_slots, container.back() };
   };
-  
   
   connection_type connect_once(function_type slot)  {
     struct fire_once {

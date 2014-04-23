@@ -57,7 +57,7 @@ public:
   void disconnect() {
     m_fn = nullptr;
   }
-  R operator() (Args&&... args) {
+  R operator() (Args... args) {
     return m_fn(std::forward<Args>(args)...);
   }
   template <class A, class F>
@@ -65,6 +65,9 @@ public:
   template <class Signal>
   friend class slimsig::connection;
 private:
+  inline function_type& slot_function() {
+    return m_fn;
+  }
   template <class T>
   inline T* slot_target() {
     return m_fn.template target<T>();
@@ -77,6 +80,7 @@ private:
   template <class Signal>
   class connection {
   using slot_type = typename Signal::slot_type;
+  using slot_list = typename Signal::slot_list;
   using slot_list_iterator = typename Signal::slot_list::iterator;
   using slot_storage = typename Signal::slot_storage_type;
   connection(std::weak_ptr<slot_storage> slots, const slot_type& slot) : m_slots(std::move(slots)), m_slot_id(slot.m_slot_id) {};
@@ -103,19 +107,46 @@ private:
     
     [[gnu::always_inline]]
     inline bool connected() {
-      auto ptr = find(m_slots.lock(), m_slot_id);
-      if (ptr) return ptr->connected();
-      else return false;
+      auto slot = get_slot();
+      return slot && slot->connected();
     }
     [[gnu::always_inline]]
     inline void disconnect() {
-      auto ptr = find(m_slots.lock(), m_slot_id);
-      if (ptr) ptr->disconnect();
+      auto slot = get_slot();
+      if (slot) {
+        slot->disconnect();
+      }
     }
     template <class Allocator, class F>
     friend class detail::signal_base;
     
   private:
+    slot_type* get_slot() {
+      auto ptr = m_slots.lock();
+      auto slot = get_slot(ptr->active);
+      return slot ? slot : get_slot(ptr->pending);
+    }
+    inline slot_type* get_slot(slot_list& slots) {
+      auto begin = slots.begin();
+      auto end = slots.end();
+      begin = get_slot(begin, end);
+      return begin != end ? &*begin : nullptr;
+    }
+    slot_list_iterator get_slot(slot_list_iterator begin, slot_list_iterator end) {
+      begin = std::lower_bound(begin, end, m_slot_id, [] (const slot_type& slot, unsigned long long slot_id)
+      {
+        return slot.m_slot_id < slot_id;
+      });
+      while (begin != end) {
+        auto& slot = *begin;
+        if (slot.m_slot_id == m_slot_id) break;
+        else if (slot.m_slot_id > m_slot_id) {
+          begin = end;
+          break;
+        }
+      }
+      return begin;
+    }
     static slot_type* find(std::shared_ptr<slot_storage> store, unsigned long long slot_id) {
       if (store == nullptr) return nullptr;
       auto& slots = *store;
