@@ -59,6 +59,32 @@ go_bandit([]
       signal.emit();
       AssertThat(fired, Equals(true));
     });
+    describe("#emit()", [&] {
+      it("should should not perfectly forward r-value references", [&] {
+        ss::signal<void(std::string)> signal;
+        std::string str("hello world");
+        signal.connect([] (std::string str) {
+          AssertThat(str, Equals(std::string("hello world")));
+        });
+        signal.connect([] (std::string str){
+          AssertThat(str, Equals(std::string("hello world")));
+        });
+        signal.emit(std::move(str));
+      });
+      it("should not copy references", [&] {
+        ss::signal<void(std::string&)> signal;
+        std::string str("hello world");
+        signal.connect([] (std::string& str) {
+          AssertThat(str, Equals(std::string("hello world")));
+          str = "hola mundo";
+        });
+        signal.connect([] (std::string& str){
+          AssertThat(str, Equals(std::string("hola mundo")));
+        });
+        signal.emit(str);
+      });
+      
+    });
     describe("#slot_count()", [&] {
       it("should return the slot count", [&]
       {
