@@ -7,7 +7,8 @@ void foo(int i) {
 }
 int main(int argc, char* argv[]) {
   std::cout << "Boost::Signals2 benchmark...\n";
-  boost::signals2::signal<void(int)> signal;
+  using sig = typename boost::signals2::signal_type<void(int), boost::signals2::keywords::mutex_type<boost::signals2::dummy_mutex>>::type;
+  sig signal;
   auto start = std::chrono::high_resolution_clock::now();
   for (unsigned i = 0; i < 100000; i++) {
       signal.connect(&foo);
