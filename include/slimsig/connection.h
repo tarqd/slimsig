@@ -123,6 +123,7 @@ private:
   private:
     slot_type* get_slot() {
       auto ptr = m_slots.lock();
+      if (!ptr) return nullptr;
       auto slot = get_slot(ptr->active);
       return slot ? slot : get_slot(ptr->pending);
     }
