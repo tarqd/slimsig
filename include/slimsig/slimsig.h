@@ -59,8 +59,8 @@
 #include <slimsig/detail/signal_base.h>
 
 namespace slimsig {
-  template <class Handler, class Allocator = std::allocator<std::function<Handler>>>
-  class signal : private detail::signal_base<Allocator, Handler> {
+  template <class Handler, class ThreadPolicy = singlethread_policy, class Allocator = std::allocator<std::function<Handler>>>
+  class signal : private signal_base<ThreadPolicy, Allocator, Handler> {
     template <class F>
     struct function_traits;
     template<class R, class... Args>
@@ -78,15 +78,15 @@ namespace slimsig {
 
     
   public:
-    using base = detail::signal_base<Allocator, Handler>;
+    using base = signal_base<ThreadPolicy, Allocator, Handler>;
     using typename base::return_type;
-    using typename base::function_type;
+    using typename base::callback;
     using typename base::allocator_type;
-    using typename base::slot_type;
+    using typename base::slot;
     using typename base::slot_list;
     using typename base::list_allocator_type;
     using typename base::const_slot_reference;
-    using typename base::connection_type;
+    using typename base::connection;
     
     // allocator constructor
     using base::base;
@@ -102,68 +102,13 @@ namespace slimsig {
     using base::get_allocator;
     using base::compact;
     using base::empty;
-    /*
-    struct tracked_slot {
-      using result_type = typename function_type::result_type;
-      std::vector<std::weak_ptr<void>> tracked;
-      template<class R>
-      inline auto default_value() -> typename std::enable_if<!std::is_void<R>::value, R>::type {
-        return R{};
-      }
-      template<class R>
-      inline auto default_value() -> typename std::enable_if<std::is_void<R>::value, R>::type {
-        return;
-      }
-      
-      tracked_slot(std::vector<std::weak_ptr<void>> objs,
-                   function_type fn, function_type& ctx = dummy()) : tracked(std::move(objs)), fn(std::move(fn)), context(ctx) {
-        locked.reserve(tracked.size());
-      };
-      tracked_slot(const tracked_slot&) = default;
-      tracked_slot(tracked_slot&&) = default;
-      tracked_slot& operator=(const tracked_slot&) = default;
-      tracked_slot& operator=(tracked_slot&&) = default;
-      template <class... BindArguments>
-      result_type operator()(BindArguments&&... args) {
-        if (context) {
-          for (auto i = tracked.begin(), end = tracked.end(); i != end; i++) {
-            auto& obj = *i;
-            if (!obj.expired()) {
-              locked.emplace_back(obj);
-            } else {
-              context = nullptr;
-              break;
-            }
-          }
-          if (context) {
-            return fn(std::forward<BindArguments>(args)...);
-          }
-        } else {
-          return default_value<result_type>();
-        }
-        
-      }
-      std::vector<std::shared_ptr<void>> locked;
-      function_type& context;
-      function_type fn;
-      static function_type& dummy() {
-        static function_type empty{nullptr};
-        return empty;
-      }
-    };
-    
-    connection_type connect(const function_type& slot, std::vector<std::weak_ptr<void>> tracked_objects) {
-      auto& container = !this->is_running ? this->slots : this->pending_slots;
-      container.emplace_back(std::allocate_shared<function_type>(allocator, std::allocator_arg, allocator,
-                                                                 tracked_slot {tracked_objects, slot}));
-      auto& binding = *container.back();
-      binding.template target<tracked_slot>()->context = binding;
-      return connection_type { std::weak_ptr<function_type> { container.back() } };
-    }*/
 
 
   };
-  template <class Handler, class Allocator = std::allocator<std::function<Handler>>>
-  using signal_t = signal<Handler, Allocator>;
+  template <
+    class Handler,
+    class ThreadPolicy = singlethread_policy,
+    class Allocator = std::allocator<std::function<Handler>>
+  > using signal_t = signal<Handler, ThreadPolicy, Allocator>;
 }
 #endif

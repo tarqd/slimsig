@@ -14,33 +14,63 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
-namespace slimsig { namespace detail {
+#include <atomic>
+#include <mutex>
+#include <cmath>
+namespace slimsig {
+struct multithread_policy {
+  using slot_id = std::atomic<uint_least64_t>;
+  using mutex = std::mutex;
+  using lock = std::unique_lock<mutex>;
+  using slot_mutex = std::mutex;
+  using slot_lock = std::mutex;
+  
+};
+// used in single threaded mode
+// doesn't actually do any locking
+// uses always inlined empty methods
+// to make sure they are optimized out by the compiler
+struct fake_mutex {
+  [[gnu::always_inline]]
+  inline void lock() {};
+  [[gnu::always_inline]]
+  inline void unlock() {};
+  [[gnu::always_inline]]
+  inline bool try_lock() { return true; };
+};
 
-template <class Allocator, class F>
+struct singlethread_policy {
+  using slot_id = std::uint_least64_t;
+  using mutex = fake_mutex;
+  using lock = std::unique_lock<fake_mutex>;
+  using slot_mutex = fake_mutex;
+  using slot_lock = fake_mutex;
+};
+
+template <class Handler, class ThreadPolicy, class Allocator>
+class signal;
+
+template <class ThreadPolicy, class Allocator, class F>
 class signal_base;
 
-template<class Allocator, class R, class... Args>
-class signal_base<Allocator, R(Args...)>
-{
 
+template<class ThreadPolicy, class Allocator, class R, class... Args>
+class signal_base<ThreadPolicy, Allocator, R(Args...)>
+{
 public:
   using return_type = R;
-  using function_type = std::function<R(Args...)>;
+  using callback = std::function<R(Args...)>;
   using allocator_type = Allocator;
-  using slot_type = slot<R(Args...)>;
-  using slot_list = std::vector<slot_type, typename std::allocator_traits<allocator_type>::template rebind_traits<slot_type>::allocator_type>;
-  using slot_storage_type = slot_store<slot_list>;
-  using list_allocator_type = typename slot_list::allocator_type;
-  using const_slot_reference = typename std::add_const<typename std::add_lvalue_reference<slot_type>::type>::type;
-  using slot_iterator = typename slot_list::iterator;
-  using connection_type = connection<signal_base>;
-  using extended_function = std::function<R(connection_type& conn, Args...)>;
+  using slot_list = slimsig::slot_list<R(Args...), typename ThreadPolicy::slot_id, bool>;
+  using slot = typename slot_list::slot;
+  using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot_list>::allocator_type;
+  using const_slot_reference = typename slot_list::const_reference;
+  using connection = connection<signal_base>;
+  using extended_callback = std::function<R(connection& conn, Args...)>;
+  using thread_policy = ThreadPolicy;
+  using slot_id = typename thread_policy::slot_id;
 
 private:
-  unsigned long long m_last_id = 0;
-  inline unsigned long long next_id() {
-    return m_last_id++;
-  };
 public:
   static constexpr std::size_t arity = sizeof...(Args);
   
@@ -53,9 +83,10 @@ public:
   
   // allocator constructor
   signal_base(const allocator_type& alloc) :
-  allocator(alloc),
-  m_slots(std::allocate_shared<slot_storage_type>(alloc, list_allocator_type(alloc))),
-  is_running(false) {};
+    allocator(alloc),
+    m_slots(std::allocate_shared<slot_list>(alloc, list_allocator_type(alloc))),
+    is_running(false),
+    last_id() {};
   
   signal_base(size_t capacity, const allocator_type& alloc = allocator_type{})
   : signal_base(alloc) {
@@ -64,105 +95,122 @@ public:
   
   // use R and Args&&.. for better autocompletion
   inline R emit(Args... args) {
-    is_running = true;
     auto& slots = *m_slots;
+    std::lock_guard<slot_list> guard(slots);
     // runs the slot if connected, otherwise return true and queue it for deletion
+    auto last_slot = slots.back();
     auto is_disconnected = [&] (const_slot_reference slot)
     {
       if (slot) {
-        if (slot == slots.active.back()) {
-          slot.slot_function()(std::forward<Args>(args)...);
+        if (slot == last_slot) {
+          (*slot)(std::forward<Args>(args)...);
         } else {
-          slot.slot_function()(args...);
+          (*slot)(args...);
         }
+
         return false;
       }
       else return true;
     };
     
     
-    auto begin = slots.active.begin();
-    auto end = slots.active.end();
+    auto begin = slots.begin();
+    auto end = slots.end();
     // sane implementations only move elements if the predicate returns true
     // as if calling find_if to find the first matching slot, then shifting the rest of the values
     // so the matched elements end up at the end of the array
     begin = std::remove_if(begin, end, is_disconnected);
-    if (begin != end) slots.active.erase(begin, end);
-    if (slots.pending.size() > 0) {
-      slots.active.insert(slots.active.cend(),
-                   std::make_move_iterator(slots.pending.begin()),
-                   std::make_move_iterator(slots.pending.end()));
-      slots.pending.clear();
-    }
-    is_running = false;
+    slots.erase(begin, end);
   }
   
-  inline connection_type connect(function_type slot)
+  inline connection connect(callback slot)
   {
-    auto& container = !is_running ? m_slots->active : m_slots->pending;
-    container.emplace_back(std::move(slot), next_id());
-    return connection_type { m_slots, container.back() };
+    auto sid = m_slots->emplace(std::move(slot));
+    return connection { m_slots, sid};
   };
   
-  connection_type connect_once(function_type slot)  {
-    struct fire_once {
-      fire_once (function_type func) : fn(std::move(func)) {}
-      function_type fn;
-      connection_type connection;
-      R operator() (Args&&... args) {
-        fn(std::forward<Args>(args)...);
-        connection.disconnect();
+  inline connection connect_extended(extended_callback slot)
+  {
+    struct extended_slot {
+      callback fn;
+      connection connection;
+      R operator()(Args&&... args) {
+        return fn(connection, std::forward<Args>(args)...);
       }
     };
     auto& container = queue();
-    container.emplace_back(fire_once{std::move(slot)}, next_id());
-    auto& slot_handler = container.back();
-    connection_type connection { m_slots, slot_handler };
-    slot_handler.template slot_target<fire_once>()->connection = connection;
-    return connection;
+    auto slot_id = ++last_id;
+    container.emplace_back(extended_slot
+    {
+      std::move(slot), { m_slots, slot_id }
+    }, slot_id);
+    return connection { m_slots, slot_id };
   }
   
+  template <class TP, class Alloc>
+  inline connection connect(std::shared_ptr<signal<R(Args...), TP, Alloc>> signal) {
+    using signal_type = typename decltype(signal)::element_type;
+    
+    struct signal_slot {
+      std::weak_ptr<signal_type> handle;
+      connection connection;
+      R operator()(Args&&... args) {
+        auto signal = handle.lock();
+        if (signal) {
+          return signal->emit(std::forward<Args>(args)...);
+        } else {
+          connection.disconnect();
+          return detail::default_value<R>();
+        }
+      }
+    };
+    
+    auto slot_id = m_slots->emplace(signal_slot { signal, {m_slots,0}});
+    return connection { m_slots,  slot_id};
+  }
+  
+  connection connect_once(callback slot)  {
+    struct fire_once {
+      callback fn;
+      connection connection;
+      R operator() (Args&&... args) {
+        connection.disconnect();
+        return fn(std::forward<Args>(args)...);
+      }
+    };
+    auto slot_id = m_slots->template emplace_extended<fire_once>(std::move(slot));
+    return connection { m_slots, slot_id };
+  }
   void disconnect_all() {
-    auto& slots = *m_slots;
-    slots.active.clear();
-    slots.pending.clear();
+    m_slots->clear();
   }
   const allocator_type& get_allocator() const {
     return allocator;
   }
   inline bool empty() const {
-    auto& slots = *m_slots;
-    return slots.active.size() == 0 && slots.pending.size() == 0;
+    return m_slots->empty();
   }
   inline std::size_t slot_count() const {
-    auto& slots = *m_slots;
-    return slots.active.size() + slots.pending.size();
+    return m_slots->total_size();
   }
   inline void compact() {
-    auto& slots = *m_slots;
-    auto& active = slots.active;
-    auto& pending = slots.pending;
-    auto begin = active.begin();
-    auto end = active.end();
-    begin = std::remove_if(begin, end, &is_disconnected);
-    slots.erase(begin, end);
-    begin = pending.begin();
-    end = pending.end();
-    begin = std::remove_if(begin, end, &is_disconnected);
-    pending.erase(begin, end);
+    auto begin = std::remove_if(m_slots->begin(), m_slots->end(), &is_disconnected);
+    m_slots.erase(begin, m_slots->end());
   }
-protected:
-  allocator_type allocator;
-  inline slot_list& queue() {
-    return !is_running ? m_slots->active : m_slots->pending;
-  }
-  std::shared_ptr<slot_storage_type> m_slots;
-  bool is_running;
+  template <class FN, class TP, class Alloc>
+  friend class signal;
 private:
   static inline bool is_disconnected(const_slot_reference slot) {
     return slot && bool(*slot);
   }
+  allocator_type allocator;
+  inline slot_list& queue() {
+    return !is_running ? m_slots->active : m_slots->pending;
+  }
+  std::shared_ptr<slot_list> m_slots;
+  bool is_running;
+  slot_id last_id;
 };
-}}
+}
 
 #endif

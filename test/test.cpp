@@ -89,16 +89,16 @@ go_bandit([]
       it("should return the slot count", [&]
       {
         signal.connect([]{});
-        AssertThat(signal.slot_count(), Equals(1));
+        AssertThat(signal.slot_count(), Equals(1u));
       });
       it("should return the correct count when adding slots during iteration", [&]
       {
         signal.connect([&] {
           signal.connect([]{});
-          AssertThat(signal.slot_count(), Equals(2));
+          AssertThat(signal.slot_count(), Equals(2u));
         });
         signal.emit();
-        AssertThat(signal.slot_count(), Equals(2));
+        AssertThat(signal.slot_count(), Equals(2u));
       });
     });
     describe("#connect_once()", [&]{
@@ -108,9 +108,9 @@ go_bandit([]
           count++;
         });
         signal.emit();
-        AssertThat(count, Equals(1));
+        AssertThat(count, Equals(1u));
         signal.emit();
-        AssertThat(count, Equals(1));
+        AssertThat(count, Equals(1u));
         
       });
     });
@@ -121,7 +121,7 @@ go_bandit([]
         auto conn1 = signal.connect([]{});
         auto conn2 = signal.connect([]{});
         signal.disconnect_all();
-        AssertThat(signal.slot_count(), Equals(0));
+        AssertThat(signal.slot_count(), Equals(0u));
         AssertThat(conn1.connected(), Equals(false));
         AssertThat(conn2.connected(), Equals(false));
         AssertThat(signal.empty(), Equals(true));
@@ -196,10 +196,10 @@ go_bandit([]
     });
     it("should still be valid if the signal is destroyed", [&]
     {
-      using connection_type = ss::signal<void()>::connection_type;
+      using connection_type = ss::signal<void()>::connection;
       connection_type connection;
       {
-        ss::signal<void()> scoped_signal;
+        ss::signal<void()> scoped_signal{};
         connection = scoped_signal.connect([]{});
       }
       AssertThat(connection.connected(), Equals(false));
