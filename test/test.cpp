@@ -83,6 +83,20 @@ go_bandit([]
         });
         signal.emit(str);
       });
+      it("should be re-entrant", [&] { // see test.js
+        unsigned count{0};
+        signal.connect([&]{
+          ++count;
+          if (count == 1) {
+            signal.connect_once([&]{
+              ++count;
+            });
+            signal.emit();
+          };
+        });
+        signal.emit();
+        AssertThat(count, Equals(3u))
+      });
       
     });
     describe("#slot_count()", [&] {
