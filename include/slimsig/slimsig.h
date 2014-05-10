@@ -100,7 +100,6 @@ namespace slimsig {
     using base::disconnect_all;
     using base::slot_count;
     using base::get_allocator;
-    using base::compact;
     using base::empty;
 
 

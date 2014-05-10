@@ -28,9 +28,10 @@ class signal_base;
   using slot_type = slot;
   using slot_list_iterator = typename Signal::slot_list::iterator;
   using slot_storage = typename Signal::slot_list;
-  using slot_id = typename slot_storage::slot_id;
-  connection(std::weak_ptr<slot_storage> slots, const slot_type& slot) : connection(std::move(slots), slot.m_slot_id)  {};
-  connection(std::weak_ptr<slot_storage> slots, unsigned long long slot_id) : m_slots(std::move(slots)), m_slot_id(slot_id) {};
+  using slot_id = typename slot::slot_id;
+  using signal_holder = typename Signal::signal_holder;
+  connection(std::weak_ptr<signal_holder> slots, const slot_type& slot) : connection(std::move(slots), slot.m_slot_id)  {};
+  connection(std::weak_ptr<signal_holder> slots, unsigned long long slot_id) : m_slots(std::move(slots)), m_slot_id(slot_id) {};
   public:
     connection() {}; // empty connection
     connection(const connection& other) : m_slots(other.m_slots), m_slot_id(other.m_slot_id) {};
@@ -55,18 +56,20 @@ class signal_base;
     [[gnu::always_inline]]
     inline bool connected() const {
       const auto slots = m_slots.lock();
-      if (slots) {
-        auto slot = slots->find(m_slot_id);
-        return slot != slots->cend() ? slot->connected() : false;
+      if (slots && slots->signal != nullptr) {
+        return  slots->signal->connected(m_slot_id);
+        //auto slot = (*slots)->find(m_slot_id);
+        //return slot != (*slots)->cend() ? slot->connected() : false;
       }
       return false;
     }
     [[gnu::always_inline]]
     inline void disconnect() {
-      auto slots = m_slots.lock();
-      if (slots) {
-        auto slot = slots->find(m_slot_id);
-        if (slot != slots->end()) slot->disconnect();
+      std::shared_ptr<signal_holder> slots = m_slots.lock();
+      if (slots != nullptr && slots->signal != nullptr) {
+        slots->signal->disconnect(m_slot_id);
+        //auto slot = *slots->find(m_slot_id);
+        //if (slot != slots->end()) slot->disconnect();
       }
     }
     template <class ThreadPolicy, class Allocator, class F>
@@ -76,7 +79,7 @@ class signal_base;
     
     
   private:
-    std::weak_ptr<slot_storage> m_slots;
+    std::weak_ptr<signal_holder> m_slots;
     slot_id m_slot_id;
   };
   

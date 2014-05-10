@@ -34,6 +34,10 @@ public:
   basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid) {};
   template <class... Arguments>
   basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid) {};
+  basic_slot(basic_slot&&) = default;
+  basic_slot(const basic_slot&) = default;
+  inline basic_slot& operator=(const basic_slot&) = default;
+  inline basic_slot& operator=(basic_slot&&) = default;
   
   [[gnu::always_inline]]
   inline bool operator==(const basic_slot& other) const{
@@ -93,7 +97,7 @@ public:
     return m_fn(std::forward<Args>(args)...);
   }
 
-private:
+
   callback m_fn;
   slot_id m_slot_id;
 };
