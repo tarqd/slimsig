@@ -120,6 +120,9 @@ public:
     swap(m_disconnect_all, other.m_disconnect_all);
     swap(last_id, other.last_id);
     swap(allocator, other.allocator);
+    swap(m_self, other.m_self);
+    if (m_self) m_self->signal = this;
+    if (other.m_self) other.m_self->signal = &other;
   }
   signal_base& operator=(signal_base&& other) {
     using std::swap;
@@ -131,6 +134,8 @@ public:
     swap(last_id, other.last_id);
     swap(allocator, other.allocator);
     // dont need to swap m_self
+    if (m_self) m_self->signal = this;
+    if (other.m_self) other.m_self->signal = &other;
     return *this;
   }
    struct emit_scope{
