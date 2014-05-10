@@ -140,6 +140,44 @@ go_bandit([]
         AssertThat(conn2.connected(), Equals(false));
         AssertThat(signal.empty(), Equals(true));
       });
+      it("should remove all slots while iterating", [&]
+      {
+        decltype(signal)::connection conn1;
+        int count = 0;
+        auto conn2 = signal.connect([&] {
+          count++;
+          signal.disconnect_all();
+        });
+        conn1 = signal.connect([&] {
+          count++;
+        });
+        signal.emit();
+        AssertThat(signal.slot_count(), Equals(0u));
+        AssertThat(conn1.connected(), Equals(false));
+        AssertThat(conn2.connected(), Equals(false));
+        AssertThat(count, Equals(1));
+      });
+      it("should remove all slots while iterating, without removing new slots", [&]
+      {
+        decltype(signal)::connection conn1;
+        int count = 0;
+        auto conn2 = signal.connect([&] {
+          count++;
+          signal.disconnect_all();
+          signal.connect([&] {
+            count++;
+          });
+        });
+        conn1 = signal.connect([&] {
+          count++;
+        });
+        signal.emit();
+        signal.emit();
+        AssertThat(signal.slot_count(), Equals(1u));
+        AssertThat(conn1.connected(), Equals(false));
+        AssertThat(conn2.connected(), Equals(false));
+        AssertThat(count, Equals(2));
+      });
     });
     
   });

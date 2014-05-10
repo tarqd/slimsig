@@ -1,7 +1,7 @@
 #include <boost/signals2.hpp>
 #include <iostream>
 #include <chrono>
-int count = 0;
+long long count = 0;
 void foo(int i) {
   count += 1;
 }
@@ -13,6 +13,7 @@ int main(int argc, char* argv[]) {
   for (unsigned i = 0; i < 100000; i++) {
       signal.connect(&foo);
   }
+  std::cout << "Slot Count: " << signal.num_slots() << "\n";
   auto diff = std::chrono::high_resolution_clock::now() - start;
   std::cout << "Connecting Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() << "ms\n";
   start = std::chrono::high_resolution_clock::now();
@@ -21,4 +22,5 @@ int main(int argc, char* argv[]) {
   }
   diff = std::chrono::high_resolution_clock::now() - start;
   std::cout << "Emit Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() << "ms\n";
+  std::cout << "Emit Count: " << count << "\n";
 }

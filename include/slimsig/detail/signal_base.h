@@ -167,7 +167,7 @@ public:
             }
           });
           // clear out pending lists
-          head->resize(1);
+          pending.resize(1);
         }
         
       }
