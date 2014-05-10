@@ -95,7 +95,7 @@ public:
   // allocator constructor
   signal_base(const allocator_type& alloc) :
     allocator(alloc),
-    m_self(std::make_shared<signal_holder>(this)),
+    m_self(nullptr),
     m_depth(0),
     m_last_depth(0),
     pending(1),
@@ -103,7 +103,6 @@ public:
     last_id(),
     m_dirty(false),
     m_disconnect_all(false) {
-      assert(m_self->signal == this);
            //m_self = std::make_shared<signal_base**>(this);
     };
   
@@ -121,9 +120,6 @@ public:
     swap(m_disconnect_all, other.m_disconnect_all);
     swap(last_id, other.last_id);
     swap(allocator, other.allocator);
-    swap(m_self, other.m_self);
-    m_self->signal = this;
-    other.m_self->signal = &other;
   }
   signal_base& operator=(signal_base&& other) {
     using std::swap;
@@ -134,9 +130,7 @@ public:
     swap(m_disconnect_all, other.m_disconnect_all);
     swap(last_id, other.last_id);
     swap(allocator, other.allocator);
-    swap(m_self, other.m_self);
-    m_self->signal = this;
-    other.m_self->signal = &other;
+    // dont need to swap m_self
     return *this;
   }
    struct emit_scope{
@@ -301,7 +295,7 @@ public:
     }
   }
   ~signal_base() {
-    m_self->signal = nullptr;
+    if (m_self) m_self->signal = nullptr;
   }
   template <class FN, class TP, class Alloc>
   friend class signal;
@@ -323,6 +317,9 @@ private:
      pending.emplace_back();
      m_last_depth = m_depth;
     }
+    // lazy initialize to put off heap allocations if the user
+    // has not connected a slot
+    if (!m_self) m_self = std::make_shared<signal_holder>(this);
     return ++last_id;
   }
   template <class... SlotArgs>
@@ -331,7 +328,6 @@ private:
     pending.back().emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
   }
-  allocator_type allocator;
   std::vector<std::vector<slot>> pending;
   std::shared_ptr<signal_holder> m_self;
   slot_id last_id;
@@ -340,6 +336,7 @@ private:
   unsigned m_last_depth;
   bool m_dirty;
   bool m_disconnect_all;
+  allocator_type allocator;
 };
 }
 
