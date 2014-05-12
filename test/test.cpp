@@ -159,24 +159,29 @@ go_bandit([]
       });
       it("should remove all slots while iterating, without removing new slots", [&]
       {
-        decltype(signal)::connection conn1;
-        int count = 0;
-        auto conn2 = signal.connect([&] {
-          count++;
+        decltype(signal)::connection conn2, conn3;
+        unsigned fired[] = { 0, 0, 0 };
+        auto conn1 = signal.connect([&] {
+          fired[0]++;
           signal.disconnect_all();
-          signal.connect([&] {
-            count++;
+          // connection 3
+          conn3 = signal.connect([&] {
+            fired[2]++;
           });
         });
-        conn1 = signal.connect([&] {
-          count++;
+        // should never fire
+        conn2 = signal.connect([&] {
+         fired[1]++;
         });
         signal.emit();
         signal.emit();
         AssertThat(signal.slot_count(), Equals(1u));
         AssertThat(conn1.connected(), Equals(false));
         AssertThat(conn2.connected(), Equals(false));
-        AssertThat(count, Equals(2));
+        AssertThat(conn3.connected(), Equals(true));
+        AssertThat(fired[0], Equals(1));
+        AssertThat(fired[1], Equals(0));
+        AssertThat(fired[2], Equals(1));
       });
     });
     
@@ -221,12 +226,15 @@ go_bandit([]
         signal.emit();
         AssertThat(fired, Equals(false));
         AssertThat(connection.connected(), Equals(false));
+        AssertThat(signal.slot_count(), Equals(0u));
       });
       it("should not throw if already disconnected", [&]
       {
         auto connection = signal.connect([]{});
         connection.disconnect();
         connection.disconnect();
+        AssertThat(connection.connected(), Equals(false));
+        AssertThat(signal.slot_count(), Equals(0u));
       });
     });
     it("should be consistent across copies", [&]
@@ -235,6 +243,7 @@ go_bandit([]
       auto conn2 = conn1;
       conn1.disconnect();
       AssertThat(conn1.connected(), Equals(conn2.connected()));
+      AssertThat(signal.slot_count(), Equals(0u));
     });
     it("should not affect slot lifetime", [&]
     {

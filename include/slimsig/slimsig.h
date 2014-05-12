@@ -61,22 +61,6 @@
 namespace slimsig {
   template <class Handler, class ThreadPolicy = singlethread_policy, class Allocator = std::allocator<std::function<Handler>>>
   class signal : private signal_base<ThreadPolicy, Allocator, Handler> {
-    template <class F>
-    struct function_traits;
-    template<class R, class... Args>
-    struct function_traits<R(*)(Args...)> : function_traits<R(Args...)> {};
-    template<class R, class...Args>
-    struct function_traits<R(Args...)> {
-      using return_type = R;
-      template <class T>
-      struct as_member_of {
-        using type = return_type (T::*)(Args...);
-      };
-      template <class T>
-      using as_member_of_t = typename as_member_of<T>::type;
-    };
-
-    
   public:
     using base = signal_base<ThreadPolicy, Allocator, Handler>;
     using typename base::return_type;
@@ -93,7 +77,6 @@ namespace slimsig {
     
     // default constructor
     signal() : signal(allocator_type()) {};
-
     using base::emit;
     using base::connect;
     using base::connect_once;
@@ -101,6 +84,7 @@ namespace slimsig {
     using base::slot_count;
     using base::get_allocator;
     using base::empty;
+    using base::swap;
 
 
   };
@@ -109,5 +93,6 @@ namespace slimsig {
     class ThreadPolicy = singlethread_policy,
     class Allocator = std::allocator<std::function<Handler>>
   > using signal_t = signal<Handler, ThreadPolicy, Allocator>;
+  
 }
 #endif
