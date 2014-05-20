@@ -26,7 +26,8 @@ struct signal_traits;
 template <class R, class... Args>
 struct signal_traits<R(Args...)> {
   using return_type = R;
-  using slot_id = std::size_t;
+  using slot_id_type = std::size_t;
+  using depth_type = unsigned;
 };
 
 template <class Handler, class SignalTraits, class Allocator>
@@ -61,13 +62,13 @@ public:
   using return_type = typename signal_traits::return_type;
   using callback = std::function<R(Args...)>;
   using allocator_type = Allocator;
-  using slot = basic_slot<R(Args...), typename signal_traits::slot_id>;
+  using slot = basic_slot<R(Args...), typename signal_traits::slot_id_type>;
   using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot>::allocator_type;
   using slot_list = std::vector<slot, list_allocator_type>;
   
   using connection = connection<signal_base>;
   using extended_callback = std::function<R(connection& conn, Args...)>;
-  using slot_id = typename signal_traits::slot_id;
+  using slot_id = typename signal_traits::slot_id_type;
   using slot_reference = typename slot_list::reference;
   using const_slot_reference = typename slot_list::const_reference;
   using size_type = std::size_t;
@@ -126,7 +127,7 @@ public:
 
   // use R and Args... for better autocompletion
   
-  void emit(Args... args) {
+  return_type emit(Args... args) {
     using detail::each;
     using detail::each_n;
     // scope guard
