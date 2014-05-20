@@ -10,7 +10,9 @@
     "include/slimsig/slimsig.h",
     "include/slimsig/tracked_connect.h",
     "include/slimsig/detail/signal_base.h",
-    "include/slimsig/connection.h"]
+    "include/slimsig/connection.h",
+    "include/slimsig/detail/slot.h",
+    "slimsig.gyp", "slimsig.gypi"]
   }, {
     "target_name": "benchmark",
     "type": "executable",
