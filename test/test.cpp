@@ -1,10 +1,12 @@
 #include <iostream>
+#include <array>
 #include <bandit/bandit.h>
 #include <slimsig/slimsig.h>
 
 using namespace bandit;
 namespace ss = slimsig;
 using ss::signal_t;
+using connection = typename signal_t<void()>::connection;
 bool function_slot_triggered = false;
 bool static_slot_triggered = false;
 bool functor_slot_triggered = false;
@@ -117,7 +119,7 @@ go_bandit([]
     });
     describe("#connect_once()", [&]{
       it("it should fire once", [&] {
-        int count = 0;
+        unsigned count = 0;
         signal.connect_once([&] {
           count++;
         });
@@ -130,6 +132,7 @@ go_bandit([]
     });
     describe("#disconnect_all()", [&]
     {
+    /*
       it("should remove all slots", [&]
       {
         auto conn1 = signal.connect([]{});
@@ -139,49 +142,67 @@ go_bandit([]
         AssertThat(conn1.connected(), Equals(false));
         AssertThat(conn2.connected(), Equals(false));
         AssertThat(signal.empty(), Equals(true));
-      });
+      });*/
       it("should remove all slots while iterating", [&]
       {
-        decltype(signal)::connection conn1;
-        int count = 0;
-        auto conn2 = signal.connect([&] {
-          count++;
+        // should still fire each slot once
+        // matches node.js event emitter behavior
+        std::pair<unsigned, connection> res1, res2;
+        res1.second = signal.connect([&] {
+          res1.first++;
           signal.disconnect_all();
         });
-        conn1 = signal.connect([&] {
-          count++;
+        
+        res2.second = signal.connect([&] {
+          res2.first++;
         });
         signal.emit();
+        
         AssertThat(signal.slot_count(), Equals(0u));
-        AssertThat(conn1.connected(), Equals(false));
-        AssertThat(conn2.connected(), Equals(false));
-        AssertThat(count, Equals(1));
+        AssertThat(res1.second.connected(), Equals(false));
+        AssertThat(res2.second.connected(), Equals(false));
+        AssertThat(res1.first, Equals(1));
+        AssertThat(res2.first, Equals(1));
+        
       });
       it("should remove all slots while iterating, without removing new slots", [&]
       {
-        decltype(signal)::connection conn2, conn3;
-        unsigned fired[] = { 0, 0, 0 };
-        auto conn1 = signal.connect([&] {
-          fired[0]++;
+        std::pair<unsigned, connection> res1, res2, res3;
+        res1.second = signal.connect([&] {
+          res1.first++;
           signal.disconnect_all();
-          // connection 3
-          conn3 = signal.connect([&] {
-            fired[2]++;
+          res3.second = signal.connect([&] {
+            res3.first++;
           });
         });
-        // should never fire
-        conn2 = signal.connect([&] {
-         fired[1]++;
+        
+        res2.second = signal.connect([&]{
+          res2.first++;
         });
         signal.emit();
         signal.emit();
         AssertThat(signal.slot_count(), Equals(1u));
-        AssertThat(conn1.connected(), Equals(false));
-        AssertThat(conn2.connected(), Equals(false));
-        AssertThat(conn3.connected(), Equals(true));
-        AssertThat(fired[0], Equals(1));
-        AssertThat(fired[1], Equals(0));
-        AssertThat(fired[2], Equals(1));
+        AssertThat(res1.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+      });
+      
+      it("should support disconnect_all while iterating, followed by connect/emit", [&] {
+        std::pair<unsigned, connection> res1, res2;
+        res1.second = signal.connect([&] {
+          res1.first++;
+          signal.disconnect_all();
+          res2.second = signal.connect([&] {
+            res2.first++;
+          });
+          signal.emit();
+        });
+        signal.emit();
+        AssertThat(res1.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+        AssertThat(res1.second.connected(), Equals(false));
+        AssertThat(res2.second.connected(), Equals(true));
+        AssertThat(signal.slot_count(), Equals(1));
       });
     });
     

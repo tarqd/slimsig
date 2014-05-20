@@ -30,10 +30,10 @@ public:
   using callback = std::function<R(Args...)>;
   using slot_id = SlotID;
   
-  basic_slot() : m_fn(nullptr), m_slot_id(0) {};
-  basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid) {};
+  basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {};
+  basic_slot() : basic_slot(0, nullptr) {};
   template <class... Arguments>
-  basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid) {};
+  basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {};
   basic_slot(basic_slot&&) = default;
   basic_slot(const basic_slot&) = default;
   inline basic_slot& operator=(const basic_slot&) = default;
@@ -73,33 +73,42 @@ public:
   }
   [[gnu::always_inline]]
   inline operator bool()  const{
-   return bool(m_fn);
+   return m_is_connected;
   }
   [[gnu::always_inline]]
   inline bool connected() const {
-    return bool(m_fn);
+    return m_is_connected;
   }
   [[gnu::always_inline]]
   inline void disconnect() {
-    m_fn = nullptr;
+    m_is_connected = false;
+    if (!m_is_running) {
+      m_fn = nullptr;
+    }
   }
   
-  [[gnu::always_inline]]
+  [[gnu::always_inline, deprecated("Use operator()")]]
   inline const callback& operator*() const{
     return m_fn;
   };
-  [[gnu::always_inline]]
+  [[gnu::always_inline, deprecated("Use operator()")]]
   inline const callback* operator->() const {
     return &m_fn;
   }
-  
-  R operator() (Args&&... args) {
+  [[gnu::always_inline]]
+  inline R operator() (Args... args) const{
+    struct invoke_guard
+    {
+      const basic_slot& slot;
+      ~invoke_guard() { slot.m_is_running = false;}
+    } guard { *this };
+    m_is_running = true;
     return m_fn(std::forward<Args>(args)...);
   }
-
-
   callback m_fn;
   slot_id m_slot_id;
+  bool m_is_connected;
+  mutable bool m_is_running;
 };
 
 /**

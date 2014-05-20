@@ -19,65 +19,60 @@
 #include <cmath>
 #include <cassert>
 namespace slimsig {
-struct multithread_policy {
-  using slot_id = std::atomic<uint_least64_t>;
-  using signal_mutex = std::recursive_mutex;
-  using lock = std::unique_lock<signal_mutex>;
-  using slot_mutex = std::recursive_mutex;
-  using slot_lock = std::recursive_mutex;
-  
-};
-// used in single threaded mode
-// doesn't actually do any locking
-// uses always inlined empty methods
-// to make sure they are optimized out by the compiler
-struct fake_mutex {
-  [[gnu::always_inline]]
-  inline void lock() {};
-  [[gnu::always_inline]]
-  inline void unlock() {};
-  [[gnu::always_inline]]
-  inline bool try_lock() { return true; };
+
+template <class Handler>
+struct signal_traits;
+
+template <class R, class... Args>
+struct signal_traits<R(Args...)> {
+  using return_type = R;
+  using slot_id = std::size_t;
 };
 
-struct singlethread_policy {
-  using slot_id = std::uint_least64_t;
-  using signal_mutex = fake_mutex;
-  using slot_mutex = fake_mutex;
-  using slot_lock = fake_mutex;
-};
-
-template <class Handler, class ThreadPolicy, class Allocator>
+template <class Handler, class SignalTraits, class Allocator>
 class signal;
 
-template <class ThreadPolicy, class Allocator, class Handler>
+template <class SignalTraits, class Allocator, class Handler>
 class signal_base;
 
-template <class Handler, class ThreadPolicy, class Allocator>
-void swap(signal<Handler, ThreadPolicy, Allocator>& lhs, signal<Handler, ThreadPolicy, Allocator> rhs);
+template <class Handler, class SignalTraits, class Allocator>
+void swap(signal<Handler, SignalTraits, Allocator>& lhs, signal<Handler, SignalTraits, Allocator>& rhs);
 
-template<class ThreadPolicy, class Allocator, class R, class... Args>
-class signal_base<ThreadPolicy, Allocator, R(Args...)>
+namespace detail {
+  template <class Container, class Callback>
+  inline void each(const Container& container, typename Container::size_type begin, typename Container::size_type end, const Callback& fn)
+  {
+    for(; begin != end; begin++) {
+      fn(container[begin]);
+    }
+  }
+  template <class Container, class Callback>
+  inline void each_n(const Container& container, typename Container::size_type begin, typename Container::size_type count, const Callback& fn)
+  {
+    return each<Container, Callback>(container, begin, begin + count, fn);
+  }
+}
+template<class SignalTraits, class Allocator, class R, class... Args>
+class signal_base<SignalTraits, Allocator, R(Args...)>
 {
   struct emit_scope;
 public:
-  using return_type = R;
+  using signal_traits = SignalTraits;
+  using return_type = typename signal_traits::return_type;
   using callback = std::function<R(Args...)>;
   using allocator_type = Allocator;
-  using slot = basic_slot<R(Args...), typename ThreadPolicy::slot_id>;
-  using slot_list = std::vector<std::vector<slot>>;
-  using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot_list>::allocator_type;
+  using slot = basic_slot<R(Args...), typename signal_traits::slot_id>;
+  using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot>::allocator_type;
+  using slot_list = std::vector<slot, list_allocator_type>;
+  
   using connection = connection<signal_base>;
   using extended_callback = std::function<R(connection& conn, Args...)>;
-  using thread_policy = ThreadPolicy;
-  using slot_id = typename thread_policy::slot_id;
-  using slot_reference = typename slot_list::value_type::reference;
-  using const_slot_reference = typename slot_list::value_type::const_reference;
-private:
-  using slot_list_reference = typename slot_list::reference;
-  using const_slot_list_reference = typename slot_list::const_reference;
+  using slot_id = typename signal_traits::slot_id;
+  using slot_reference = typename slot_list::reference;
+  using const_slot_reference = typename slot_list::const_reference;
+  using size_type = std::size_t;
 public:
-  static constexpr std::size_t arity = sizeof...(Args);
+  static constexpr auto arity = sizeof...(Args);
   struct signal_holder {
     signal_holder(signal_base* p) : signal(p) {};
     signal_base* signal;
@@ -91,16 +86,18 @@ public:
   
   // allocator constructor
   signal_base(const allocator_type& alloc) :
-    pending(0),
+    pending(alloc),
     m_self(nullptr),
     last_id(),
     m_size(0),
-    m_depth(0),
+    m_offset(0),
     allocator(alloc),
-    m_disconnect_all(false){};
+    m_depth(0){};
   
   signal_base(size_t capacity, const allocator_type& alloc = allocator_type{})
-  : signal_base(alloc) {};
+  : signal_base(alloc) {
+    pending.reserve(capacity);
+  };
   
   signal_base(signal_base&& other) {
     this->swap(other);
@@ -121,56 +118,28 @@ public:
     swap(m_size, rhs.m_size);
     swap(m_depth, rhs.m_depth);
     swap(allocator, rhs.allocator);
-    swap(m_disconnect_all, rhs.m_disconnect_all);
+    swap(m_offset, rhs.m_offset);
     if (m_self) m_self->signal = this;
     if (rhs.m_self) rhs.m_self->signal = &rhs;
   }
-  template <class Container, class Callback>
-  void each_until(const Container& container, typename Container::size_type begin, typename Container::size_type end, const Callback& fn)
-  {
-    using std::any_of;
-    for(; begin != end; begin++) {
-      if (fn(container[begin])) break;
-    }
-  }
+
+
   // use R and Args... for better autocompletion
-  inline void emit(Args... args) {
-    using std::for_each;
-    using std::remove_if;
-    using std::move;
-    using std::make_move_iterator;
-    using std::forward;
-    using std::any_of;
+  
+  void emit(Args... args) {
+    using detail::each;
+    using detail::each_n;
     // scope guard
     emit_scope scope { *this };
     auto end = pending.size();
-    if (end == 0) return;
-    each_until(pending, 0, --end, [&] (const_slot_reference slot) {
-      if (slot) (*slot)(args...);
-      return m_disconnect_all;
+    assert(m_offset <= end);
+    if (end - m_offset == 0) return;
+    assert(end > 0);
+    each(pending, m_offset, --end, [&] (const_slot_reference slot) {
+      if (slot) slot(args...);
     });
-    if (!m_disconnect_all) {
-      auto& slot = pending.back();
-      if (slot) (*slot)(std::forward<Args&&>(args)...);
-    }
-    
-    /*
-    for (auto index = 0; index < pending_count; index++)  {
-      bool is_last = &slots == &last_list;
-      auto& slots = pending[index];
-      auto& last_slot = slots.back();
-      for (auto& slot : slots) {
-        if (slot) {
-          if (is_last && &last_slot == &slot) {
-            (*slot)(forward<Args&&>(args)...);
-          } else {
-            (*slot)(args...);
-          }
-          if (m_disconnect_all) break;
-        }
-      }
-      if (m_disconnect_all) break;
-    }*/
+    auto& slot = pending[end];
+    if (slot)  slot(std::forward<Args&&>(args)...);
   }
   
   inline connection connect(callback slot)
@@ -214,9 +183,9 @@ public:
   connection connect_once(callback slot)  {
     struct fire_once {
       callback fn;
-      connection connection;
+      connection conn;
       R operator() (Args&&... args) {
-        connection.disconnect();
+        auto scoped_connection = make_scoped_connection(std::move(conn));
         return fn(std::forward<Args>(args)...);
       }
     };
@@ -225,59 +194,66 @@ public:
   
 
   void disconnect_all() {
-    // cancel any iteration that's happening
-    if (m_depth > 0) m_disconnect_all = true;
-    pending.clear();
-    m_size = 0;
+    using std::for_each;
+    if (is_running()) {
+      m_offset = pending.size();
+      m_size = 0;
+    } else {
+      pending.clear();
+      m_size = 0;
+    }
+    // if we've used up a lot of id's we can take advantage of the fact that
+    // all connections are based on the current signal_holder pointer
+    // and reset our last_id to 0 without causing trouble with old connections
+    if (m_self && last_id > std::numeric_limits<slot_id>::max() / 3) {
+      m_self->signal = nullptr;
+      m_self.reset();
+      last_id = slot_id();
+    }
   }
+  
   const allocator_type& get_allocator() const {
     return allocator;
   }
   inline bool empty() const {
     return m_size == 0;
   }
-  inline std::size_t slot_count() const {
+  inline size_type slot_count() const {
     return m_size;
   }
-  inline bool connected(slot_id index) {
-    using std::find_if;
-    using std::lower_bound;
-    auto end = pending.cend();
-    auto slot = lower_bound(pending.cbegin(), end, index, [] (const_slot_reference slot, const slot_id& index) {
-      return slot < index;
-    });
-    if (slot != end && slot->m_slot_id == index) return slot->connected();
-    return false;
+  inline size_type max_size() const {
+    return std::min(std::numeric_limits<slot_id>::max(), pending.max_size());
   }
-  
-  inline void disconnect(slot_id index) {
-    using std::find_if;
-    using std::lower_bound;
-    auto end = pending.end();
-    auto slot = lower_bound(pending.begin(), end, index, [] (slot_reference slot, const slot_id& index) {
-      return slot < index;
-    });
-    if (slot != end && slot->m_slot_id == index) {
-      if (slot->connected()) {
-       slot->disconnect();
-       m_size -= 1;
-      }
-      
-    }
+  inline size_type remaining_slots() const {
+    return max_size() - last_id;
   }
+
+  size_type max_depth() const {
+    return std::numeric_limits<unsigned>::max();
+  }
+  size_type get_depth() const {
+    return m_depth;
+  }
+  bool is_running() const {
+    return m_depth > 0;
+  }
+
   ~signal_base() {
     if (m_self) m_self->signal = nullptr;
   }
   template <class FN, class TP, class Alloc>
   friend class signal;
-  template <class F, class T, class A>
-  friend void slimsig::swap(signal<F, T, A>&, signal<F, T, A>&);
+  template <class Signal>
+  friend class slimsig::connection;
 private:
   struct emit_scope{
     signal_base& signal;
     emit_scope(signal_base& context) : signal(context) {
       signal.m_depth++;
     }
+    emit_scope() = delete;
+    emit_scope(const emit_scope&) = delete;
+    emit_scope(emit_scope&&) = delete;
     ~emit_scope() {
       using std::move;
       using std::for_each;
@@ -287,46 +263,82 @@ private:
       if (depth == 0) {
         auto m_size = signal.m_size;
         auto& pending = signal.pending;
+        // if the size is different than the expected size
+        // we have some slots we need to remove
         if (m_size != pending.size()) {
+          // remove slots from disconnect_all
+          pending.erase(pending.begin(), pending.begin() + signal.m_offset);
           pending.erase(remove_if(pending.begin(), pending.end(), &is_disconnected), pending.end());
         }
-        signal.m_disconnect_all = false;
+        signal.m_offset = 0;
         assert(m_size == pending.size());
+      }
+    }
+  };
+
+  static bool is_disconnected(const_slot_reference slot) {  return !bool(slot); };
+  
+  inline bool connected(slot_id index)
+  {
+    using std::lower_bound;
+    auto end = pending.cend();
+    auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& index) {
+      return slot < index;
+    });
+    if (slot != end && slot->m_slot_id == index) return slot->connected();
+    return false;
+  };
+  
+  inline void disconnect(slot_id index)
+  {
+    using std::lower_bound;
+    auto end = pending.end();
+    auto slot = lower_bound(pending.begin() + m_offset, end, index, [] (slot_reference slot, const slot_id& index) {
+      return slot < index;
+    });
+    if (slot != end && slot->m_slot_id == index) {
+      if (slot->connected()) {
+       slot->disconnect();
+       m_size -= 1;
       }
       
     }
   };
-  static bool is_disconnected(const_slot_reference slot) {
-    return !bool(slot);
-  }
+  
   template<class C, class T>
   [[gnu::always_inline]]
-  inline connection create_connection(T&& slot) {
+  inline connection create_connection(T&& slot)
+  {
     auto sid = prepare_connection();
     emplace(sid, C { std::move(slot), {m_self, sid} });
     return connection { m_self, sid };
-  }
+  };
   
   [[gnu::always_inline]]
-  inline slot_id prepare_connection() {
+  inline slot_id prepare_connection()
+  {
     // lazy initialize to put off heap allocations if the user
     // has not connected a slot
     if (!m_self) m_self = std::make_shared<signal_holder>(this);
-    return ++last_id;
-  }
+    return last_id++;
+  };
+  
   template <class... SlotArgs>
   [[gnu::always_inline]]
-  inline void emplace(SlotArgs&&... args) {
+  inline void emplace(SlotArgs&&... args)
+  {
     pending.emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
-  }
+  };
+  
   std::vector<slot> pending;
   std::shared_ptr<signal_holder> m_self;
   slot_id last_id;
   std::size_t m_size;
-  unsigned m_depth;
+  std::size_t m_offset;
   allocator_type allocator;
-  bool m_disconnect_all;
+  unsigned m_depth;
+  
 };
 
   template <class Handler, class ThreadPolicy, class Allocator>

@@ -59,10 +59,10 @@
 #include <slimsig/detail/signal_base.h>
 
 namespace slimsig {
-  template <class Handler, class ThreadPolicy = singlethread_policy, class Allocator = std::allocator<std::function<Handler>>>
-  class signal : private signal_base<ThreadPolicy, Allocator, Handler> {
+  template <class Handler, class SignalTraits = signal_traits<Handler>, class Allocator = std::allocator<std::function<Handler>>>
+  class signal : private signal_base<SignalTraits, Allocator, Handler> {
   public:
-    using base = signal_base<ThreadPolicy, Allocator, Handler>;
+    using base = signal_base<SignalTraits, Allocator, Handler>;
     using typename base::return_type;
     using typename base::callback;
     using typename base::allocator_type;
@@ -71,7 +71,8 @@ namespace slimsig {
     using typename base::list_allocator_type;
     using typename base::const_slot_reference;
     using typename base::connection;
-    
+    using base::arity;
+    using base::argument;
     // allocator constructor
     using base::base;
     
@@ -80,19 +81,24 @@ namespace slimsig {
     using base::emit;
     using base::connect;
     using base::connect_once;
+    using base::connect_extended;
     using base::disconnect_all;
     using base::slot_count;
     using base::get_allocator;
     using base::empty;
     using base::swap;
-
+    using base::max_size;
+    using base::max_depth;
+    using base::get_depth;
+    using base::is_running;
+    using base::remaining_slots;
 
   };
   template <
     class Handler,
-    class ThreadPolicy = singlethread_policy,
+    class SignalTraits = signal_traits<Handler>,
     class Allocator = std::allocator<std::function<Handler>>
-  > using signal_t = signal<Handler, ThreadPolicy, Allocator>;
+  > using signal_t = signal<Handler, SignalTraits, Allocator>;
   
 }
 #endif
