@@ -16,9 +16,10 @@
 
 namespace slimsig {
 namespace detail {
+
 template <class T>
 [[gnu::always_inline]] inline T default_value() { return T(); }
-template<> [[gnu::always_inline]] void default_value<void>() {};
+template<> [[gnu::always_inline]] inline void default_value<void>() {};
 };
 
 template <class Callback, class SlotID>
@@ -72,7 +73,7 @@ public:
     return m_slot_id >= other;
   }
   [[gnu::always_inline]]
-  inline operator bool()  const{
+  inline explicit operator bool()  const{
    return m_is_connected;
   }
   [[gnu::always_inline]]
