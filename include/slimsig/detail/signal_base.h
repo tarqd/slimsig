@@ -8,7 +8,7 @@
 
 #ifndef slimsig_signal_base_h
 #define slimsig_signal_base_h
-#include <slimsig/connection.h>
+
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -18,6 +18,8 @@
 #include <mutex>
 #include <cmath>
 #include <cassert>
+
+#include <slimsig/connection.h>
 namespace slimsig {
 
 template <class Handler>
@@ -102,7 +104,6 @@ public:
   
   signal_base(signal_base&& other) {
     this->swap(other);
-    
   }
   signal_base& operator=(signal_base&& other) {
     this->swap(other);
@@ -113,25 +114,32 @@ public:
   signal_base& operator=(const signal_base&) = delete;
   void swap(signal_base& rhs) {
     using std::swap;
-    swap(pending, rhs.pending);
-    swap(m_self, rhs.m_self);
-    swap(last_id, rhs.last_id);
-    swap(m_size, rhs.m_size);
-    swap(m_depth, rhs.m_depth);
-    swap(allocator, rhs.allocator);
-    swap(m_offset, rhs.m_offset);
-    if (m_self) m_self->signal = this;
-    if (rhs.m_self) rhs.m_self->signal = &rhs;
+    using std::back_inserter;
+    using std::copy_if;
+    using std::not1;
+    if (this != &rhs) {
+    #if !defined(NDEBUG) || (defined(SLIMSIG_SWAP_GUARD) && SLIMSIG_SWAP_GUARD)
+      if (is_running() || rhs.is_running())
+        throw new std::logic_error("Signals can not be swapped or moved while emitting");
+    #endif
+      swap(pending, rhs.pending);
+      swap(m_self, rhs.m_self);
+      if (m_self) m_self->signal = this;
+      if (rhs.m_self) rhs.m_self->signal = &rhs;
+      swap(last_id, rhs.last_id);
+      swap(m_size, rhs.m_size);
+      swap(m_offset, rhs.m_offset);
+      if (std::allocator_traits<allocator_type>::propagate_on_container_swap::value)
+        swap(allocator, rhs.allocator);
+      swap(m_depth, rhs.m_depth);
+    }
   }
 
-
-  // use R and Args... for better autocompletion
-  
   return_type emit(Args... args) {
     using detail::each;
-    using detail::each_n;
     // scope guard
     emit_scope scope { *this };
+
     auto end = pending.size();
     assert(m_offset <= end);
     if (end - m_offset == 0) return;
@@ -141,6 +149,9 @@ public:
     });
     auto& slot = pending[end];
     if (slot)  slot(std::forward<Args&&>(args)...);
+  }
+  return_type operator()(Args... args) {
+    return emit(std::forward<Args&&>(args)...);
   }
   
   inline connection connect(callback slot)
@@ -174,7 +185,7 @@ public:
           return signal->emit(std::forward<Args>(args)...);
         } else {
           connection.disconnect();
-          return detail::default_value<R>();
+          return;
         }
       }
     };
@@ -321,6 +332,7 @@ private:
     // lazy initialize to put off heap allocations if the user
     // has not connected a slot
     if (!m_self) m_self = std::make_shared<signal_holder>(this);
+    assert((last_id < std::numeric_limits<slot_id>::max() - 1) && "All available slot ids for this signal have been exhausted. This may be a sign you are misusing signals");
     return last_id++;
   };
   
@@ -331,8 +343,9 @@ private:
     pending.emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
   };
-  
+protected:
   std::vector<slot> pending;
+private:
   std::shared_ptr<signal_holder> m_self;
   slot_id last_id;
   std::size_t m_size;

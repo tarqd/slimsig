@@ -5,14 +5,15 @@
     "type": "executable",
     "include_dirs": ["deps/bandit", "test"],
     "includes": ["slimsig.gypi"],
-    "sources": ["test/test.cpp",
+    "sources": [
+    "test/test.cpp",
     # for ease of development
     "include/slimsig/slimsig.h",
     "include/slimsig/tracked_connect.h",
     "include/slimsig/detail/signal_base.h",
     "include/slimsig/connection.h",
     "include/slimsig/detail/slot.h",
-    "slimsig.gyp", "slimsig.gypi"]
+    "slimsig.gyp", "slimsig.gypi", "common.gypi"]
   }, {
     "target_name": "benchmark",
     "type": "executable",
