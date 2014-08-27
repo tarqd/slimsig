@@ -315,9 +315,9 @@ private:
     emplace(sid, C { std::move(slot), {m_self, sid} });
     return connection { m_self, sid };
   }
-  
+  static auto slot_id_helper(slot_id sid) -> decltype(++sid);
   [[gnu::always_inline]]
-  inline slot_id prepare_connection() {
+  inline auto prepare_connection() -> decltype(slot_id_helper(std::declval<slot_id>())) {
     if (m_depth > 0 && m_last_depth < m_depth) {
      pending.emplace_back();
      m_last_depth = m_depth;
@@ -333,6 +333,7 @@ private:
     pending.back().emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
   }
+
   std::vector<std::vector<slot>> pending;
   std::shared_ptr<signal_holder> m_self;
   slot_id last_id;
