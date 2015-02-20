@@ -3,7 +3,7 @@
 //  slimsig
 //
 //  Created by Christopher Tarquini on 4/21/14.
-//  TODO: Clean this up, seperate into smaller files
+//
 //
 
 #ifndef slimsig_signal_base_h
@@ -20,12 +20,8 @@
 #include <cassert>
 
 #include <slimsig/connection.h>
-#include <slimsig/detail/slot.h>
 namespace slimsig {
 
-// Signal Traits
-// Basically to support return types later
-// Also let's you customize the type used for slot ids, if you find yourself running into limits
 template <class Handler>
 struct signal_traits;
 
@@ -45,7 +41,6 @@ class signal_base;
 template <class Handler, class SignalTraits, class Allocator>
 void swap(signal<Handler, SignalTraits, Allocator>& lhs, signal<Handler, SignalTraits, Allocator>& rhs);
 
-// utility methods
 namespace detail {
   template <class Container, class Callback>
   inline void each(const Container& container, typename Container::size_type begin, typename Container::size_type end, const Callback& fn)
@@ -60,7 +55,6 @@ namespace detail {
     return each<Container, Callback>(container, begin, begin + count, fn);
   }
 }
-
 template<class SignalTraits, class Allocator, class R, class... Args>
 class signal_base<SignalTraits, Allocator, R(Args...)>
 {
@@ -70,7 +64,7 @@ public:
   using return_type = typename signal_traits::return_type;
   using callback = std::function<R(Args...)>;
   using allocator_type = Allocator;
-  using slot = basic_slot<R(Args...), typename signal_traits::slot_id_type, typename signal_traits::depth_type>;
+  using slot = basic_slot<R(Args...), typename signal_traits::slot_id_type>;
   using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot>::allocator_type;
   using slot_list = std::vector<slot, list_allocator_type>;
   
@@ -126,7 +120,7 @@ public:
     if (this != &rhs) {
     #if !defined(NDEBUG) || (defined(SLIMSIG_SWAP_GUARD) && SLIMSIG_SWAP_GUARD)
       if (is_running() || rhs.is_running())
-        throw std::logic_error("Signals can not be swapped or moved while emitting");
+        throw new std::logic_error("Signals can not be swapped or moved while emitting");
     #endif
       swap(pending, rhs.pending);
       swap(m_self, rhs.m_self);
@@ -151,13 +145,12 @@ public:
     if (end - m_offset == 0) return;
     assert(end > 0);
     each(pending, m_offset, --end, [&] (const_slot_reference slot) {
-      if (slot || slot.depth() >= m_depth) slot(args...);
+      if (slot) slot(args...);
     });
     auto& slot = pending[end];
-    if (slot || slot.depth() >= m_depth)  slot(std::forward<Args&&>(args)...);
+    if (slot)  slot(std::forward<Args&&>(args)...);
   }
-
-  inline return_type operator()(Args... args) {
+  return_type operator()(Args... args) {
     return emit(std::forward<Args&&>(args)...);
   }
   
@@ -174,7 +167,7 @@ public:
       callback fn;
       connection connection;
       R operator()(Args&&... args) {
-        return fn(connection, std::forward<Args&&>(args)...);
+        return fn(connection, std::forward<Args>(args)...);
       }
     };
     return create_connection<extended_slot>(std::move(slot));
@@ -189,7 +182,7 @@ public:
       R operator()(Args&&... args) {
         auto signal = handle.lock();
         if (signal) {
-          return signal->emit(std::forward<Args&&>(args)...);
+          return signal->emit(std::forward<Args>(args)...);
         } else {
           connection.disconnect();
           return;
@@ -205,7 +198,7 @@ public:
       connection conn;
       R operator() (Args&&... args) {
         auto scoped_connection = make_scoped_connection(std::move(conn));
-        return fn(std::forward<Args&&>(args)...);
+        return fn(std::forward<Args>(args)...);
       }
     };
     return create_connection<fire_once>(std::move(slot));
@@ -265,10 +258,10 @@ public:
   template <class Signal>
   friend class slimsig::connection;
 private:
-  struct emit_scope {
+  struct emit_scope{
     signal_base& signal;
     emit_scope(signal_base& context) : signal(context) {
-      ++signal.m_depth;
+      signal.m_depth++;
     }
     emit_scope() = delete;
     emit_scope(const emit_scope&) = delete;
@@ -304,8 +297,8 @@ private:
     auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& index) {
       return slot < index;
     });
-    
-    return slot != end && slot->m_slot_id == index && slot->connected();
+    if (slot != end && slot->m_slot_id == index) return slot->connected();
+    return false;
   };
   
   inline void disconnect(slot_id index)
@@ -317,7 +310,7 @@ private:
     });
     if (slot != end && slot->m_slot_id == index) {
       if (slot->connected()) {
-       slot->disconnect(m_depth);
+       slot->disconnect();
        m_size -= 1;
       }
       
@@ -331,11 +324,22 @@ private:
     auto sid = prepare_connection();
     emplace(sid, C { std::move(slot), {m_self, sid} });
     return connection { m_self, sid };
+<<<<<<< HEAD
+  }
+  static auto slot_id_helper(slot_id sid) -> decltype(++sid);
+  [[gnu::always_inline]]
+  inline auto prepare_connection() -> decltype(slot_id_helper(std::declval<slot_id>())) {
+    if (m_depth > 0 && m_last_depth < m_depth) {
+     pending.emplace_back();
+     m_last_depth = m_depth;
+    }
+=======
   };
   
   [[gnu::always_inline]]
   inline slot_id prepare_connection()
   {
+>>>>>>> 974fad2b07d4b422eca4fc448e5693a514c19559
     // lazy initialize to put off heap allocations if the user
     // has not connected a slot
     if (!m_self) m_self = std::make_shared<signal_holder>(this);
@@ -349,10 +353,16 @@ private:
   {
     pending.emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
+<<<<<<< HEAD
+  }
+
+  std::vector<std::vector<slot>> pending;
+=======
   };
 protected:
   std::vector<slot> pending;
 private:
+>>>>>>> 974fad2b07d4b422eca4fc448e5693a514c19559
   std::shared_ptr<signal_holder> m_self;
   slot_id last_id;
   std::size_t m_size;
@@ -362,8 +372,8 @@ private:
   
 };
 
-  template <class Handler, class SignalTraits, class Allocator>
-  void swap(signal<Handler, SignalTraits ,Allocator>& lhs, signal<Handler,SignalTraits, Allocator>& rhs) {
+  template <class Handler, class ThreadPolicy, class Allocator>
+  void swap(signal<Handler, ThreadPolicy, Allocator>& lhs, signal<Handler, ThreadPolicy, Allocator>& rhs) {
     using std::swap;
     lhs.swap(rhs);
   }

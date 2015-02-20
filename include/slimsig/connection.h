@@ -52,9 +52,9 @@ class signal_base;
       swap(m_slots, other.m_slots);
       swap(m_slot_id, other.m_slot_id);
     }
-    
     [[gnu::always_inline]]
-    inline bool connected() const {
+    inline explicit operator bool() const { return connected(); };
+    bool connected() const {
       const auto slots = m_slots.lock();
       if (slots && slots->signal != nullptr) {
         return  slots->signal->connected(m_slot_id);
@@ -63,8 +63,8 @@ class signal_base;
       }
       return false;
     }
-    [[gnu::always_inline]]
-    inline void disconnect() {
+
+    void disconnect() {
       std::shared_ptr<signal_holder> slots = m_slots.lock();
       if (slots != nullptr && slots->signal != nullptr) {
         slots->signal->disconnect(m_slot_id);

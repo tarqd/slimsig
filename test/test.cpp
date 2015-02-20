@@ -1,10 +1,13 @@
 #include <iostream>
+#include <array>
 #include <bandit/bandit.h>
 #include <slimsig/slimsig.h>
-
+#include <slimsig/signals_from_this.h>
+#include <slimsig/detail/slot_id.h>
 using namespace bandit;
 namespace ss = slimsig;
 using ss::signal_t;
+using connection = typename signal_t<void()>::connection;
 bool function_slot_triggered = false;
 bool static_slot_triggered = false;
 bool functor_slot_triggered = false;
@@ -97,6 +100,38 @@ go_bandit([]
         signal.emit();
         AssertThat(count, Equals(3u))
       });
+      it("should not aknowledge changes to the slot list created after emit is called", [&] {
+        connection conn1, conn2, conn3;
+        unsigned count1 { 0 } , count2 { 0 }, count3 {0};
+        /*
+          First: fires 1,2,3; 
+          Second: fires 1,2
+          Third: fires 1
+        */
+        conn1 = signal.connect([&] {
+          ++count1;
+          if (count1 == 1) { conn3.disconnect(); };
+          if (count1 == 2)  { conn2.disconnect(); };
+          if (count1 <= 2) { signal.emit(); };
+        });
+        // should twice (first/second iteration)
+        conn2 = signal.connect([&] {
+          ++count2;
+          if (count2 == 1) {
+            
+          };
+        });
+        conn3 = signal.connect([&] {
+          ++count3;
+        });
+        signal.emit();
+        AssertThat(conn1.connected(), Equals(true));
+        AssertThat(conn2.connected(), Equals(false));
+        AssertThat(conn3.connected(), Equals(false));
+        AssertThat(count1, Equals(3u));
+        AssertThat(count2, Equals(2u));
+        AssertThat(count3, Equals(1u));
+      });
       
     });
     describe("#slot_count()", [&] {
@@ -117,7 +152,7 @@ go_bandit([]
     });
     describe("#connect_once()", [&]{
       it("it should fire once", [&] {
-        int count = 0;
+        unsigned count = 0;
         signal.connect_once([&] {
           count++;
         });
@@ -130,6 +165,7 @@ go_bandit([]
     });
     describe("#disconnect_all()", [&]
     {
+    /*
       it("should remove all slots", [&]
       {
         auto conn1 = signal.connect([]{});
@@ -139,44 +175,67 @@ go_bandit([]
         AssertThat(conn1.connected(), Equals(false));
         AssertThat(conn2.connected(), Equals(false));
         AssertThat(signal.empty(), Equals(true));
-      });
+      });*/
       it("should remove all slots while iterating", [&]
       {
-        decltype(signal)::connection conn1;
-        int count = 0;
-        auto conn2 = signal.connect([&] {
-          count++;
+        // should still fire each slot once
+        // matches node.js event emitter behavior
+        std::pair<unsigned, connection> res1, res2;
+        res1.second = signal.connect([&] {
+          res1.first++;
           signal.disconnect_all();
         });
-        conn1 = signal.connect([&] {
-          count++;
+        
+        res2.second = signal.connect([&] {
+          res2.first++;
         });
         signal.emit();
+        
         AssertThat(signal.slot_count(), Equals(0u));
-        AssertThat(conn1.connected(), Equals(false));
-        AssertThat(conn2.connected(), Equals(false));
-        AssertThat(count, Equals(1));
+        AssertThat(res1.second.connected(), Equals(false));
+        AssertThat(res2.second.connected(), Equals(false));
+        AssertThat(res1.first, Equals(1));
+        AssertThat(res2.first, Equals(1));
+        
       });
       it("should remove all slots while iterating, without removing new slots", [&]
       {
-        decltype(signal)::connection conn1;
-        int count = 0;
-        auto conn2 = signal.connect([&] {
-          count++;
+        std::pair<unsigned, connection> res1, res2, res3;
+        res1.second = signal.connect([&] {
+          res1.first++;
           signal.disconnect_all();
-          signal.connect([&] {
-            count++;
+          res3.second = signal.connect([&] {
+            res3.first++;
           });
         });
-        conn1 = signal.connect([&] {
-          count++;
+        
+        res2.second = signal.connect([&]{
+          res2.first++;
         });
         signal.emit();
         signal.emit();
         AssertThat(signal.slot_count(), Equals(1u));
-        AssertThat(conn1.connected(), Equals(false));
-        AssertThat(conn2.connected(), Equals(false));
-        AssertThat(count, Equals(2));
+        AssertThat(res1.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+      });
+      
+      it("should support disconnect_all while iterating, followed by connect/emit", [&] {
+        std::pair<unsigned, connection> res1, res2;
+        res1.second = signal.connect([&] {
+          res1.first++;
+          signal.disconnect_all();
+          res2.second = signal.connect([&] {
+            res2.first++;
+          });
+          signal.emit();
+        });
+        signal.emit();
+        AssertThat(res1.first, Equals(1u));
+        AssertThat(res2.first, Equals(1u));
+        AssertThat(res1.second.connected(), Equals(false));
+        AssertThat(res2.second.connected(), Equals(true));
+        AssertThat(signal.slot_count(), Equals(1));
       });
     });
     
@@ -221,12 +280,15 @@ go_bandit([]
         signal.emit();
         AssertThat(fired, Equals(false));
         AssertThat(connection.connected(), Equals(false));
+        AssertThat(signal.slot_count(), Equals(0u));
       });
       it("should not throw if already disconnected", [&]
       {
         auto connection = signal.connect([]{});
         connection.disconnect();
         connection.disconnect();
+        AssertThat(connection.connected(), Equals(false));
+        AssertThat(signal.slot_count(), Equals(0u));
       });
     });
     it("should be consistent across copies", [&]
@@ -235,6 +297,7 @@ go_bandit([]
       auto conn2 = conn1;
       conn1.disconnect();
       AssertThat(conn1.connected(), Equals(conn2.connected()));
+      AssertThat(signal.slot_count(), Equals(0u));
     });
     it("should not affect slot lifetime", [&]
     {
@@ -283,5 +346,13 @@ go_bandit([]
   });
 });
 int main(int argc, char* argv[]) {
-  bandit::run(argc, argv);
+  //bandit::run(argc, argv);
+  using id = slimsig::detail::slot_id;
+  id my_id {};
+  std::cout << "id: " << my_id << std::endl;
+  std::cout << "id: " << ++my_id << std::endl;
+  std::cout << "id: " << --my_id << std::endl;
+  std::cout << "id: " << --my_id << std::endl;
+  std::cout << "id: " << ++my_id << std::endl;
+  
 }
