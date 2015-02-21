@@ -13,6 +13,7 @@ A light-weight alternative to Boost::Signals2 and SigSlot++.
     Most implementations use a double or singly linked list which kill performance on modern CPUs by completely trashing the cache and eliminating the CPU's ability to optimize and use SIMD instructions. This is a big deal!
 
  - Less memory allocations: Because we use a vector instead of a list, we can re-use memory we've already allocated from deleted slots for future slots without hitting the heap again. STL's linked list allocates and deallocates every time you add/remove an item. Bad for cache locality, bad for fragmentation, bad for your soul!
+  - In the benchmarks `slimsig` makes a total of 19 heap allocations (including stuff from iostream and string for output), while boost::signals2 makes over 300,000 allocations for the same amount of signals
  - Simpler internals: In this branch we removed the need for shared_ptrs in the basic_slot class at the cost of some sugar. The class works more like the containers included in STL where the connections are basically iterators that you use to calls to `signal##disconnect` (think: `vector##erase`). Sugar will be added in later wth higher level classes
  - **NOT THREAD SAFE**: Thread safety as this level feels wrong, if a thread wants to emit multiple signals it has to grab a mutex to each one and lock each ones internals etc, this is better left to higher level classes that can decide when to lock what signals. Helper classes will be provided to make this easier 
  - Supports adding/removing slots while the signal is running (despite it being a vector)
@@ -39,17 +40,16 @@ I'll write up some proper documentation soon but for now check out `test/test.cp
  
 ## While still being light-weight it still supports:
  - connections/scoped_connections
- - connection.disconnect()/connection.connected() can be called after the signal stops existing 
-    There's a small overhead because of the use of a shared_ptr for each slot, however, my average use-case
-    Involves adding 1-2 slots per signal so the overhead is neglible, especially if you use a custom allocator such as boost:pool
-
+ - variadic arguments
+ - signal disconnections while iterating
+ - iterating not affected by changes to the list while iterating (as if we copied the slot_list locally before looping through it, but without the copying thanks to some low-overhead bookkeeping)
   To keep it simple I left out support for slots that return values, though it shouldn't be too hard to implement.
   I've also left thread safety as something to be handled by higher level libraries
   Much in the spirit of other STL containers. My reasoning is that even with thread safety sort of baked in
   the user would still be responsible making sure slots don't do anything funny if they are executed on different threads.
   All the mechanics for this would complicate the library, confuse users into thinking that your syncronization problems are magically sorted, and slow it down considerably even if you aren't using threads.
  Syncronization decisions are very application specific and simply don't belong in a basic building blocks library like this. 
- 
+
 ## Inspiration 
 - Boost::Signals2 - Beautiful, powerful, but heavy-weight Signal/Slot library that does everything but your taxes
 - SigSlot++ 
