@@ -59,9 +59,9 @@
 #include <slimsig/detail/signal_base.h>
 
 namespace slimsig {
-  template <class Handler, class SignalTraits = signal_traits<Handler>, class Allocator = std::allocator<std::function<Handler>>>
-  class signal : private signal_base<SignalTraits, Allocator, Handler> {
-  public:
+template <class Handler, class SignalTraits = signal_traits<Handler>, class Allocator = std::allocator<std::function<Handler>>>
+class signal : private signal_base<SignalTraits, Allocator, Handler> {
+public:
     using base = signal_base<SignalTraits, Allocator, Handler>;
     using typename base::return_type;
     using typename base::callback;
@@ -75,14 +75,17 @@ namespace slimsig {
     using base::argument;
     // allocator constructor
     using base::base;
-    
+
     // default constructor
-    signal() : signal(allocator_type()) {};
+    signal()
+        : signal(allocator_type()){};
     using base::emit;
     using base::connect;
     using base::connect_once;
     using base::connect_extended;
+    using base::disconnect;
     using base::disconnect_all;
+    using base::connected;
     using base::slot_count;
     using base::get_allocator;
     using base::empty;
@@ -92,13 +95,10 @@ namespace slimsig {
     using base::get_depth;
     using base::is_running;
     using base::remaining_slots;
-
-  };
-  template <
-    class Handler,
-    class SignalTraits = signal_traits<Handler>,
-    class Allocator = std::allocator<std::function<Handler>>
-  > using signal_t = signal<Handler, SignalTraits, Allocator>;
-  
+};
+template <class Handler,
+          class SignalTraits = signal_traits<Handler>,
+          class Allocator = std::allocator<std::function<Handler>>>
+using signal_t = signal<Handler, SignalTraits, Allocator>;
 }
 #endif

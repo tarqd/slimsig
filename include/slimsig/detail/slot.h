@@ -17,9 +17,10 @@
 namespace slimsig {
 namespace detail {
 
-template <class T>
-[[gnu::always_inline]] inline T default_value() { return T(); }
-template<> [[gnu::always_inline]] inline void default_value<void>() {};
+    template <class T>
+    inline T default_value() { return T(); }
+    template <>
+    inline void default_value<void>(){};
 };
 
 template <class Callback, class SlotID, class Depth>
@@ -28,92 +29,117 @@ class basic_slot;
 template <class R, class... Args, class SlotID, class Depth>
 class basic_slot<R(Args...), SlotID, Depth> {
 public:
-  using callback = std::function<R(Args...)>;
-  using slot_id = SlotID;
-  using depth_type = Depth;
-  basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid), m_is_running(false), m_disconnect_at(0) {};
-  basic_slot() : basic_slot(0, nullptr) {};
-  template <class... Arguments>
-  basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid), m_is_running(false) {};
-  basic_slot(basic_slot&&) = default;
-  basic_slot(const basic_slot&) = default;
-  inline basic_slot& operator=(const basic_slot&) = default;
-  inline basic_slot& operator=(basic_slot&&) = default;
-  
-  [[gnu::always_inline]]
-  inline bool operator==(const basic_slot& other) const{
-    return m_slot_id == other.m_slot_id;
-  }
-  [[gnu::always_inline]]
-  inline bool operator==(const slot_id& other) const {
-    return m_slot_id == other;
-  }
-  [[gnu::always_inline]]
-  inline bool operator <(const basic_slot& other) const {
-    return m_slot_id < other.m_slot_id;
-  }
-  [[gnu::always_inline]]
-  inline bool operator <(const slot_id& other) const {
-    return m_slot_id < other;
-  }
-  [[gnu::always_inline]]
-  inline bool operator >(const basic_slot& other) const {
-    return m_slot_id > other.m_slot_id;
-  }
-  [[gnu::always_inline]]
-  inline bool operator >(const slot_id& other) const {
-    return m_slot_id > other;
-  }
-  [[gnu::always_inline]]
-  inline bool operator <=(const slot_id& other) const {
-    return m_slot_id <= other;
-  }
-  [[gnu::always_inline]]
-  inline bool operator >=(const slot_id& other) const {
-    return m_slot_id >= other;
-  }
-  [[gnu::always_inline]]
-  inline explicit operator bool()  const{
-   return connected();
-  }
-  [[gnu::always_inline]]
-  inline bool connected() const {
-    return m_disconnect_at == 0 && bool(m_fn);
-  }
-  [[gnu::always_inline]]
-  inline void disconnect(depth_type at_depth) {
-    if (connected()) {
-      m_disconnect_at = at_depth;
-      if (at_depth == 0) m_fn = nullptr;
-    };
-  }
-  [[gnu::always_inline]]
-  inline depth_type depth() const {
-    return m_disconnect_at;
-  };
-  [[gnu::always_inline, deprecated("Use operator()")]]
-  inline const callback& operator*() const{
-    return m_fn;
-  };
-  [[gnu::always_inline, deprecated("Use operator()")]]
-  inline const callback* operator->() const {
-    return &m_fn;
-  }
-  [[gnu::always_inline]]
-  inline R operator() (Args... args) const {
-    struct invoke_guard
+    using callback = std::function<R(Args...)>;
+    using slot_id = SlotID;
+    using depth_type = Depth;
+    basic_slot(slot_id sid, callback fn)
+        : m_fn(std::move(fn))
+        , m_slot_id(sid)
+        , m_disconnect_at(0)
+        , m_is_running(false){};
+    basic_slot()
+        : basic_slot(0, nullptr){};
+    template <class... Arguments>
+    basic_slot(slot_id sid, Arguments&&... args)
+        : m_fn(std::forward<Arguments>(args)...)
+        , m_slot_id(sid)
+        , m_disconnect_at(0)
+        , m_is_running(false){};
+    basic_slot(basic_slot&&) = default;
+    basic_slot(const basic_slot&) = default;
+    inline basic_slot& operator=(const basic_slot&) = default;
+    inline basic_slot& operator=(basic_slot&&) = default;
+
+    inline bool operator==(const basic_slot& other) const
     {
-      const basic_slot& slot;
-      invoke_guard(const basic_slot& slot) : slot(slot) { slot.m_is_running = true; };
-      ~invoke_guard() { slot.m_is_running = false;}
-    } guard { *this };
-    
-    return m_fn(std::forward<Args>(args)...);
-  }
-  callback m_fn;
-  slot_id m_slot_id;
-  depth_type m_disconnect_at;
-  mutable bool m_is_running;
+        return m_slot_id == other.m_slot_id;
+    }
+
+    inline bool operator==(const slot_id& other) const
+    {
+        return m_slot_id == other;
+    }
+
+    inline bool operator<(const basic_slot& other) const
+    {
+        return m_slot_id < other.m_slot_id;
+    }
+
+    inline bool operator<(const slot_id& other) const
+    {
+        return m_slot_id < other;
+    }
+
+    inline bool operator>(const basic_slot& other) const
+    {
+        return m_slot_id > other.m_slot_id;
+    }
+
+    inline bool operator>(const slot_id& other) const
+    {
+        return m_slot_id > other;
+    }
+
+    inline bool operator<=(const slot_id& other) const
+    {
+        return m_slot_id <= other;
+    }
+
+    inline bool operator>=(const slot_id& other) const
+    {
+        return m_slot_id >= other;
+    }
+
+    inline explicit operator bool() const
+    {
+        return connected();
+    }
+
+    inline bool connected() const
+    {
+        return m_disconnect_at == 0 && bool(m_fn);
+    }
+
+    inline void disconnect(depth_type at_depth)
+    {
+        if (connected()) {
+            m_disconnect_at = at_depth;
+            if (at_depth == 0)
+                m_fn = nullptr;
+        };
+    }
+
+    inline depth_type depth() const
+    {
+        return m_disconnect_at;
+    };
+    [[ gnu::always_inline, deprecated("Use operator()") ]] inline const callback& operator*() const
+    {
+        return m_fn;
+    };
+    [[ gnu::always_inline, deprecated("Use operator()") ]] inline const callback* operator->() const
+    {
+        return &m_fn;
+    }
+
+    inline R operator()(Args... args) const
+    {
+        struct invoke_guard {
+            const basic_slot& slot;
+            invoke_guard(const basic_slot& slot)
+                : slot(slot)
+            {
+                slot.m_is_running = true;
+            };
+            ~invoke_guard() { slot.m_is_running = false; }
+        } guard{*this};
+
+        return m_fn(std::forward<Args&&>(args)...);
+    }
+    callback m_fn;
+    slot_id m_slot_id;
+    depth_type m_disconnect_at;
+    mutable bool m_is_running;
 };
 
 /**
@@ -145,7 +171,7 @@ public:
  *  This would be better with some sort of Optional type
  *
  */
- /*
+/*
 template < class T,
            class IDGenerator = std::size_t,
            class FlagType = bool,
@@ -292,8 +318,6 @@ private:
   id_generator last_id;
   flag is_locked;
 };*/
-
 }
-
 
 #endif
