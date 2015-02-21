@@ -13,7 +13,7 @@
 #include <iterator>
 #include <algorithm>
 #include <type_traits>
-
+#include <functional>
 namespace slimsig {
 namespace detail {
 

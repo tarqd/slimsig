@@ -1,7 +1,7 @@
 #include <iostream>
 #include <array>
 #include <bandit/bandit.h>
-#include <slimsig/slimsig.h>
+#include <slimsig/signal.h>
 #include <slimsig/signals_from_this.h>
 #include <slimsig/detail/slot_id.h>
 using namespace bandit;
@@ -66,8 +66,7 @@ go_bandit([] {
   describe("signal", [] {
     signal_t<void()> signal;
     before_each([&] {
-      signal = ss::signal<void()>{};
-
+      signal = ss::signal_t<void()>{};
     });
     it("should trigger basic function slots", [&] {
       signal.connect(&function_slot);
@@ -100,7 +99,7 @@ go_bandit([] {
     });
     describe("#emit()", [&] {
       it("should should not perfectly forward r-value references", [&] {
-        ss::signal<void(std::string)> signal;
+        ss::signal_t<void(std::string)> signal;
         std::string str("hello world");
         signal.connect([](std::string str) {
           AssertThat(str, Equals(std::string("hello world")));
@@ -111,7 +110,7 @@ go_bandit([] {
         signal.emit(std::move(str));
       });
       it("should not copy references", [&] {
-        ss::signal<void(std::string&)> signal;
+        ss::signal_t<void(std::string&)> signal;
         std::string str("hello world");
         signal.connect([](std::string& str) {
           AssertThat(str, Equals(std::string("hello world")));
@@ -172,7 +171,7 @@ go_bandit([] {
            AssertThat(count3, Equals(1u));
          });
       it("should optimize last calls", [] {
-        ss::signal<void(copy_test)> signal;
+        ss::signal_t<void(copy_test)> signal;
         unsigned copies1 = 0u, copies2 = 0u, moves1 = 0u, moves2 = 0u;
         copy_test test1{copies1, moves1}, test2{copies2, moves2};
         signal.connect([](copy_test test) {});
@@ -319,8 +318,8 @@ go_bandit([] {
     });
   });*/
   describe("connection", [] {
-    ss::signal<void()> signal;
-    before_each([&] { signal = ss::signal<void()>{}; });
+    ss::signal_t<void()> signal;
+    before_each([&] { signal = ss::signal_t<void()>{}; });
     describe("#connected()", [&] {
       it("should return whether or not the slot is connected", [&] {
         auto connection = signal.connect([] {});
@@ -362,10 +361,10 @@ go_bandit([] {
       AssertThat(fired, Equals(true));
     });
     it("should still be valid if the signal is destroyed", [&] {
-      using connection_type = ss::signal<void()>::connection;
+      using connection_type = ss::signal_t<void()>::connection;
       connection_type connection;
       {
-        ss::signal<void()> scoped_signal{};
+        ss::signal_t<void()> scoped_signal{};
         connection = scoped_signal.connect([] {});
       }
       AssertThat(signal.connected(connection), Equals(false));
@@ -373,8 +372,8 @@ go_bandit([] {
 
   });
   describe("scoped_connection", [] {
-    ss::signal<void()> signal;
-    before_each([&] { signal = ss::signal<void()>(); });
+    ss::signal_t<void()> signal;
+    before_each([&] { signal = ss::signal_t<void()>(); });
     it("should disconnect the connection after leaving the scope", [&] {
       bool fired = false;
       {

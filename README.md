@@ -13,8 +13,10 @@ A light-weight alternative to Boost::Signals2 and SigSlot++.
     Most implementations use a double or singly linked list which kill performance on modern CPUs by completely trashing the cache and eliminating the CPU's ability to optimize and use SIMD instructions. This is a big deal!
 
  - Less memory allocations: Because we use a vector instead of a list, we can re-use memory we've already allocated from deleted slots for future slots without hitting the heap again. STL's linked list allocates and deallocates every time you add/remove an item. Bad for cache locality, bad for fragmentation, bad for your soul!
+ - Simpler internals: In this branch we removed the need for shared_ptrs in the basic_slot class at the cost of some sugar. The class works more like the containers included in STL where the connections are basically iterators that you use to calls to `signal##disconnect` (think: `vector##erase`). Sugar will be added in later wth higher level classes
+ - **NOT THREAD SAFE**: Thread safety as this level feels wrong, if a thread wants to emit multiple signals it has to grab a mutex to each one and lock each ones internals etc, this is better left to higher level classes that can decide when to lock what signals. Helper classes will be provided to make this easier 
  - Supports adding/removing slots while the signal is running (despite it being a vector)
- - Removing slots should still be very fast. It uses std::remove_if to iterate/execute slots
+ - Removing slots should still be very fast. Uses a sorted vector with a binary search to find/remove search 
     Meaning that if there are disconnected slots they are removed quickly after iteration
  - Custom allocators for more performance tweaking
 
@@ -53,8 +55,14 @@ I'll write up some proper documentation soon but for now check out `test/test.cp
 - SigSlot++ 
 - ssig - Another light-weight implementation, original inspiration for sigslim
 
-## Benchmarks
-- Coming soon! Maybe!
+## Benchmarks (take with a grain of salt)
+### Performance
+![Performance](http://i.imgur.com/cFB1dni.png)
+### Memory Usage
+#### Slim Signals
+![Slim Signals Memory Usage](http://i.imgur.com/1JQPrSx.png)
+#### Boost::Signals2
+![Boost::signals2 Memory Usage](http://i.imgur.com/mcrNKj1.png)
   
  
  

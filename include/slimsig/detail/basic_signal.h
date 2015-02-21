@@ -1,13 +1,13 @@
 //
-//  signal_base.h
+//  basic_signal.h
 //  slimsig
 //
 //  Created by Christopher Tarquini on 4/21/14.
 //  TODO: Clean this up, seperate into smaller files
 //
 
-#ifndef slimsig_signal_base_h
-#define slimsig_signal_base_h
+#ifndef slimsig_basic_signal_h
+#define slimsig_basic_signal_h
 
 #include <slimsig/connection.h>
 #include <slimsig/detail/slot.h>
@@ -35,13 +35,10 @@ struct signal_traits<R(Args...)> {
 };
 
 template <class Handler, class SignalTraits, class Allocator>
-class signal;
-
-template <class SignalTraits, class Allocator, class Handler>
-class signal_base;
+class basic_signal;
 
 template <class Handler, class SignalTraits, class Allocator>
-void swap(signal<Handler, SignalTraits, Allocator>& lhs, signal<Handler, SignalTraits, Allocator>& rhs);
+void swap(basic_signal<Handler, SignalTraits, Allocator>& lhs, basic_signal<Handler, SignalTraits, Allocator>& rhs);
 
 // utility methods
 namespace detail {
@@ -74,10 +71,11 @@ namespace detail {
     struct shared_slot;
 
     template <class Functor, class SignalTraits, class Allocator, class R, class... Args>
-    struct shared_slot<Functor, signal_base<SignalTraits, Allocator, R(Args...)>> {
+    struct shared_slot<Functor, basic_signal<R(Args...), SignalTraits, Allocator>> {
+        using signal_type = basic_signal<R(Args...), SignalTraits, Allocator>;
         std::weak_ptr<Functor> handle;
-        signal_base<SignalTraits, Allocator, R(Args...)>& signal;
-        typename signal_base<SignalTraits, Allocator, R(Args...)>::connection connection;
+        signal_type& signal;
+        typename signal_type::connection connection;
         R operator()(Args... args)
         {
             auto target = handle.lock();
@@ -92,8 +90,8 @@ namespace detail {
     };
 }
 
-template <class SignalTraits, class Allocator, class R, class... Args>
-class signal_base<SignalTraits, Allocator, R(Args...)> {
+template <class R, class... Args, class SignalTraits, class Allocator>
+class basic_signal<R(Args...), SignalTraits, Allocator> {
     struct emit_scope;
 
 public:
@@ -106,7 +104,7 @@ public:
     using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot>::allocator_type;
     using slot_list = std::vector<slot, list_allocator_type>;
 
-    using connection = connection<signal_base>;
+    using connection = connection<basic_signal>;
     using extended_callback = std::function<R(connection& conn, Args...)>;
     using slot_id = typename signal_traits::slot_id_type;
     using slot_reference = typename slot_list::reference;
@@ -126,7 +124,7 @@ public:
     };
 
     // allocator constructor
-    signal_base(allocator_type alloc)
+    basic_signal(allocator_type alloc = allocator_type{})
         : pending(alloc)
         , last_id(0)
         , m_size(0)
@@ -134,30 +132,27 @@ public:
         , m_depth(0)
         , allocator(std::move(alloc)){};
 
-    signal_base(size_t capacity, allocator_type alloc = allocator_type{})
-        : signal_base(std::move(alloc))
+    basic_signal(size_t capacity, allocator_type alloc = allocator_type{})
+        : basic_signal(std::move(alloc))
     {
         pending.reserve(capacity);
     };
 
-    signal_base(signal_base&& other)
+    basic_signal(basic_signal&& other)
     {
         this->swap(other);
     }
-    signal_base& operator=(signal_base&& other)
+    basic_signal& operator=(basic_signal&& other)
     {
         this->swap(other);
         return *this;
     }
     // no copy
-    signal_base(const signal_base&) = delete;
-    signal_base& operator=(const signal_base&) = delete;
-    void swap(signal_base& rhs)
+    basic_signal(const basic_signal&) = delete;
+    basic_signal& operator=(const basic_signal&) = delete;
+    void swap(basic_signal& rhs)
     {
         using std::swap;
-        using std::back_inserter;
-        using std::copy_if;
-        using std::not1;
         if (this != &rhs) {
 #if !defined(NDEBUG) || (defined(SLIMSIG_SWAP_GUARD) && SLIMSIG_SWAP_GUARD)
             if (is_running() || rhs.is_running())
@@ -167,8 +162,9 @@ public:
             swap(last_id, rhs.last_id);
             swap(m_size, rhs.m_size);
             swap(m_offset, rhs.m_offset);
-            if (std::allocator_traits<allocator_type>::propagate_on_container_swap::value)
+            if (std::allocator_traits<allocator_type>::propagate_on_container_swap::value) {
                 swap(allocator, rhs.allocator);
+              }
             swap(m_depth, rhs.m_depth);
         }
     }
@@ -190,26 +186,29 @@ public:
         if (end - m_offset == 0)
             return;
         assert(end > 0);
-        each(pending, m_offset, --end, [&](const_slot_reference slot) {
-      if (slot || slot.depth() >= m_depth) slot(args...);
-        });
+        end -= 1;
+        for (auto i = m_offset; i != end; ++i) {
+          auto& slot = pending[i];
+          if (slot || slot.depth() >= m_depth) slot(args...);
+        };
 
         auto& slot = pending[end];
         if (slot || slot.depth() >= m_depth)
             slot(std::forward<Args&&>(args)...);
     }
-    /**
+    /*!
    *  Alias for signal#emit()
    *
    *  @param args Arguments passed to connected slots
    *
    *  @return return_type
    */
-    inline return_type operator()(Args... args)
+    [[gnu::always_inline]] inline return_type operator()(Args... args)
     {
         return emit(std::forward<Args&&>(args)...);
     }
-    /**
+
+    /*!
    *  Connects a function to the signal
    *
    *  @param slot std::function<R(Args...)>
@@ -222,7 +221,7 @@ public:
         emplace(sid, std::move(slot));
         return {sid};
     };
-    /**
+    /*!
    *  Connects a extended functor to the signal
    *
    *  @param slot Callable<R(signal&, connection, Args...)>
@@ -234,7 +233,7 @@ public:
     {
         struct extended_slot {
             Slot fn;
-            signal_base& signal;
+            basic_signal& signal;
             connection connection;
             R operator()(Args... args)
             {
@@ -243,25 +242,45 @@ public:
         };
         return create_connection<extended_slot>(std::move(slot));
     }
+    /*!
+     *  Connect to a shared functor that will auto-disconnect when the functor expires
+     *
+     *  @param slot shared/weak ptr to functor object
+     *
+     *  @return connection
+     */
     template <class Functor>
     inline enable_if_slot_t<Functor, connection> connect(std::weak_ptr<Functor> slot)
     {
-        using shared_slot = detail::shared_slot<signal_base, Functor>;
+        using shared_slot = detail::shared_slot<basic_signal, Functor>;
         return create_connection<shared_slot>(std::move(slot));
     };
+    /*!
+     *  Connect to a shared function that will auto-disconnect when the function expires
+     *
+     *  @param slot shared/weak ptr to function object
+     *
+     *  @return connection
+     */
     inline connection connect(std::weak_ptr<std::function<R(Args...)>> slot)
     {
-        using shared_slot = detail::shared_slot<signal_base, callback>;
+        using shared_slot = detail::shared_slot<basic_signal, callback>;
         return create_connection<shared_slot>(std::move(slot));
     }
-
+    /*!
+     *  Connect to a shared signal that will auto-disconnect when the signal expires
+     *
+     *  @param slot shared/weak ptr to a signal
+     *
+     *  @return connection
+     */
     template <class TP, class Alloc>
-    inline connection connect(std::shared_ptr<signal<R(Args...), TP, Alloc>>& signal)
+    inline connection connect(std::shared_ptr<basic_signal<R(Args...), TP, Alloc>>& signal)
     {
-        using signal_type = slimsig::signal<R(Args...), TP, Alloc>;
+        using signal_type = slimsig::basic_signal<R(Args...), TP, Alloc>;
         struct signal_slot {
             std::weak_ptr<signal_type> handle;
-            signal_base& signal;
+            basic_signal& signal;
             connection connection;
             R operator()(Args... args)
             {
@@ -277,19 +296,24 @@ public:
         };
         return create_connection<signal_slot>(std::move(signal));
     }
-
+    /*!
+     *  Connect to a slot that will expire after the first time it is called
+     *
+     *  @param slot shared/weak ptr to functor object
+     *
+     *  @return connection
+     */
     template <class Slot>
     inline enable_if_slot_t<Slot, connection> connect_once(Slot slot)
     {
         struct fire_once {
             Slot fn;
-            signal_base& signal;
+            basic_signal& signal;
             connection conn;
 
             R operator()(Args&&... args)
             {
-
-                auto scoped_connection = make_scoped_connection(signal, std::move(conn));
+                signal.disconnect(conn);
                 return fn(std::forward<Args&&>(args)...);
             }
         };
@@ -351,7 +375,7 @@ public:
         return m_depth > 0;
     }
 
-    ~signal_base()
+    ~basic_signal()
     {
     }
     template <class FN, class TP, class Alloc>
@@ -361,8 +385,8 @@ public:
 
 private:
     struct emit_scope {
-        signal_base& signal;
-        emit_scope(signal_base& context)
+        basic_signal& signal;
+        emit_scope(basic_signal& context)
             : signal(context)
         {
             ++signal.m_depth;
@@ -422,9 +446,6 @@ private:
                 std::cout << "super fucky" << std::endl;
             }
         }
-        else {
-            assert(0 && "somethings fucky");
-        }
     };
 
     template <class C, class T>
@@ -437,8 +458,6 @@ private:
 
     [[gnu::always_inline]] inline slot_id prepare_connection()
     {
-        // lazy initialize to put off heap allocations if the user
-        // has not connected a slot
         assert((slot_id(last_id) + 1 != std::numeric_limits<slot_id>::max()) && "All available slot ids for this signal have been exhausted. This may be a sign you are misusing signals");
         return last_id++;
     };
@@ -447,7 +466,7 @@ private:
     [[gnu::always_inline]] inline void emplace(SlotArgs&&... args)
     {
         pending.emplace_back(std::forward<SlotArgs&&>(args)...);
-        m_size++;
+        ++m_size;
     };
 
 protected:
@@ -462,9 +481,9 @@ private:
 };
 
 template <class Handler, class SignalTraits, class Allocator>
-inline void swap(signal<Handler, SignalTraits, Allocator>& lhs, signal<Handler, SignalTraits, Allocator>& rhs)
+inline void swap(basic_signal<Handler, SignalTraits, Allocator>& lhs,
+                 basic_signal<Handler, SignalTraits, Allocator>& rhs)
 {
-    using std::swap;
     lhs.swap(rhs);
 }
 }

@@ -8,9 +8,9 @@
     "sources": [
     "test/test.cpp",
     # for ease of development
-    "include/slimsig/slimsig.h",
+    "include/slimsig/signal.h",
     "include/slimsig/tracked_connect.h",
-    "include/slimsig/detail/signal_base.h",
+    "include/slimsig/detail/basic_signal.h",
     "include/slimsig/connection.h",
     "include/slimsig/detail/slot.h",
     "slimsig.gyp", "slimsig.gypi", "common.gypi"]

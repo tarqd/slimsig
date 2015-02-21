@@ -19,7 +19,7 @@ template <class Signal>
 class connection;
 
 template <class ThreadPolicy, class Allocator, class F>
-class signal_base;
+class basic_signal;
 // detail
 
 template <class Signal>
@@ -59,7 +59,7 @@ public:
     }
 
     template <class ThreadPolicy, class Allocator, class F>
-    friend class signal_base;
+    friend class basic_signal;
     template <class T, class IDGenerator, class FlagType, class Allocator>
     friend class slot_list;
 

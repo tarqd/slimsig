@@ -8,7 +8,7 @@
 
 #ifndef slimsig_signals_from_this_h
 #define slimsig_signals_from_this_h
-#include "slimsig.h"
+#include "signal.h"
 #include <tuple>
 
 namespace slimsig {

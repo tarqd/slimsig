@@ -1,15 +1,15 @@
-#include <slimsig/slimsig.h>
+#include <slimsig/signal.h>
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <chrono>s
+#include <chrono>
 long long count = 0;
 void foo(int i) {
   count += 1;
 }
 int main(int argc, char* argv[]) {
   std::cout << "Slimmer Signals benchmark...\n";
-  slimsig::signal<void(int)> signal;
+  slimsig::signal_t<void(int)> signal;
   auto start = std::chrono::high_resolution_clock::now();
   for (unsigned i = 0; i < 100000; i++) {
       signal.connect(&foo);
