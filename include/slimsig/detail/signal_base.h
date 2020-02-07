@@ -294,8 +294,8 @@ private:
   {
     using std::lower_bound;
     auto end = pending.cend();
-    auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& index) {
-      return slot < index;
+    auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& idx) {
+      return slot < idx;
     });
     if (slot != end && slot->m_slot_id == index) return slot->connected();
     return false;
@@ -305,8 +305,8 @@ private:
   {
     using std::lower_bound;
     auto end = pending.end();
-    auto slot = lower_bound(pending.begin() + m_offset, end, index, [] (slot_reference slot, const slot_id& index) {
-      return slot < index;
+    auto slot = lower_bound(pending.begin() + m_offset, end, index, [] (slot_reference slot, const slot_id& idx) {
+      return slot < idx;
     });
     if (slot != end && slot->m_slot_id == index) {
       if (slot->connected()) {
