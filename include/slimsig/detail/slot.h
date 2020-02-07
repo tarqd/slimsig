@@ -19,8 +19,8 @@ namespace detail {
 
 template <class T>
 [[gnu::always_inline]] inline T default_value() { return T(); }
-template<> [[gnu::always_inline]] inline void default_value<void>() {};
-};
+template<> [[gnu::always_inline]] inline void default_value<void>() {}
+}
 
 template <class Callback, class SlotID>
 class basic_slot;
@@ -31,10 +31,10 @@ public:
   using callback = std::function<R(Args...)>;
   using slot_id = SlotID;
   
-  basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {};
-  basic_slot() : basic_slot(0, nullptr) {};
+  basic_slot(slot_id sid, callback fn) : m_fn(std::move(fn)), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {}
+  basic_slot() : basic_slot(0, nullptr) {}
   template <class... Arguments>
-  basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {};
+  basic_slot(slot_id sid, Arguments&&... args) : m_fn(std::forward<Arguments>(args)...), m_slot_id(sid), m_is_connected(bool(m_fn)), m_is_running(false) {}
   basic_slot(basic_slot&&) = default;
   basic_slot(const basic_slot&) = default;
   inline basic_slot& operator=(const basic_slot&) = default;
@@ -281,7 +281,7 @@ private:
       return index >= index;
     });
     return begin != end && *begin == index ? begin : end;
-  };
+  }
   container_type active;
   container_type pending;
   id_generator last_id;
