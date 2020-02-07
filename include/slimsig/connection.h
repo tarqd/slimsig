@@ -12,7 +12,7 @@
 #include <functional>
 #include <algorithm>
 #include <limits>
-#include <slimsig/detail/slot.h>
+#include "detail/slot.h"
 
 namespace slimsig {
 template <class Signal>
