@@ -69,7 +69,7 @@ public:
   using list_allocator_type = typename std::allocator_traits<Allocator>::template rebind_traits<slot>::allocator_type;
   using slot_list = std::vector<slot, list_allocator_type>;
   
-  using connection = connection<signal_base>;
+  using connection = slimsig::connection<signal_base>;
   using extended_callback = std::function<R(connection& conn, Args...)>;
   using slot_id = typename signal_traits::slot_id_type;
   using slot_reference = typename slot_list::reference;
@@ -166,9 +166,9 @@ public:
   {
     struct extended_slot {
       callback fn;
-      connection connection;
+      connection conn;
       R operator()(Args&&... args) {
-        return fn(connection, std::forward<Args>(args)...);
+        return fn(conn, std::forward<Args>(args)...);
       }
     };
     return create_connection<extended_slot>(std::move(slot));
@@ -179,13 +179,13 @@ public:
     using signal_type = slimsig::signal<R(Args...), TP, Alloc>;
     struct signal_slot {
       std::weak_ptr<signal_type> handle;
-      connection connection;
+      connection conn;
       R operator()(Args&&... args) {
         auto signal = handle.lock();
         if (signal) {
           return signal->emit(std::forward<Args>(args)...);
         } else {
-          connection.disconnect();
+          conn.disconnect();
           return;
         }
       }
