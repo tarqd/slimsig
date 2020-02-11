@@ -19,7 +19,8 @@
 #include <cmath>
 #include <cassert>
 
-#include <slimsig/connection.h>
+#include "../connection.h"
+
 namespace slimsig {
 
 template <class Handler>

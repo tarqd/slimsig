@@ -56,7 +56,7 @@
 #ifndef slimsignals_h
 #define slimsignals_h
 
-#include <slimsig/detail/signal_base.h>
+#include "detail/signal_base.h"
 
 namespace slimsig {
   template <class Handler, class SignalTraits = signal_traits<Handler>, class Allocator = std::allocator<std::function<Handler>>>
