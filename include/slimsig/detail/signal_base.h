@@ -294,8 +294,8 @@ private:
   {
     using std::lower_bound;
     auto end = pending.cend();
-    auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& index) {
-      return slot < index;
+    auto slot = lower_bound(pending.cbegin() + m_offset, end, index, [] (const_slot_reference slot, const slot_id& idx) {
+      return slot < idx;
     });
     if (slot != end && slot->m_slot_id == index) return slot->connected();
     return false;
@@ -305,8 +305,8 @@ private:
   {
     using std::lower_bound;
     auto end = pending.end();
-    auto slot = lower_bound(pending.begin() + m_offset, end, index, [] (slot_reference slot, const slot_id& index) {
-      return slot < index;
+    auto slot = lower_bound(pending.begin() + m_offset, end, index, [] (slot_reference slot, const slot_id& idx) {
+      return slot < idx;
     });
     if (slot != end && slot->m_slot_id == index) {
       if (slot->connected()) {
@@ -324,7 +324,7 @@ private:
     auto sid = prepare_connection();
     emplace(sid, C { std::move(slot), {m_self, sid} });
     return connection { m_self, sid };
-  };
+  }
   
   [[gnu::always_inline]]
   inline slot_id prepare_connection()
@@ -334,7 +334,7 @@ private:
     if (!m_self) m_self = std::make_shared<signal_holder>(this);
     assert((last_id < std::numeric_limits<slot_id>::max() - 1) && "All available slot ids for this signal have been exhausted. This may be a sign you are misusing signals");
     return last_id++;
-  };
+  }
   
   template <class... SlotArgs>
   [[gnu::always_inline]]
@@ -342,7 +342,7 @@ private:
   {
     pending.emplace_back(std::forward<SlotArgs>(args)...);
     m_size++;
-  };
+  }
 protected:
   std::vector<slot> pending;
 private:

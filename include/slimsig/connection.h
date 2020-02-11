@@ -116,7 +116,7 @@ class signal_base;
   template <class connection>
   scoped_connection<connection> make_scoped_connection(connection&& target) {
     return scoped_connection<connection>(std::forward<connection>(target));
-  };
+  }
  
 }
 
